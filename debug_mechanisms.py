@@ -4,6 +4,7 @@
 import numpy as np
 from train import *
 import logging
+from src.mdp import ActionType, CombineOperation
 
 def test_mechanism_generation():
     """Test that mechanisms are generated and evaluated correctly"""
