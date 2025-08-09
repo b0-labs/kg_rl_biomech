@@ -95,8 +95,15 @@ def create_knowledge_graph(config: Dict, logger: logging.Logger, sources: Option
     
     # Check for cached KG if requested
     if use_cache:
+        # First try the fixed version, then fall back to original
         default_cache_path = config.get('kg_builder', {}).get('cache_path', './kg_cache/comprehensive_kg.json')
-        cache_file = cache_path or default_cache_path
+        fixed_cache_path = './kg_cache/comprehensive_kg_fixed.json'
+        
+        # Try fixed version first
+        if os.path.exists(fixed_cache_path):
+            cache_file = fixed_cache_path
+        else:
+            cache_file = cache_path or default_cache_path
         
         if os.path.exists(cache_file):
             logger.info(f"Loading pre-built knowledge graph from cache: {cache_file}")
