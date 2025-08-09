@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Data source URLs and endpoints
 DATA_SOURCES = {
     'go': {
-        'url': 'http://purl.obolibrary.org/obo/go/go-basic.obo',
+        'url': 'https://purl.obolibrary.org/obo/go/go-basic.obo',
         'format': 'obo',
         'description': 'Gene Ontology - biological processes'
     },
