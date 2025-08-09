@@ -122,8 +122,13 @@ class EvaluationMetrics:
         if len(predictions) != len(true_values):
             raise ValueError(f"Predictions length ({len(predictions)}) doesn't match true values length ({len(true_values)})")
         
+        # Handle NaN and Inf values BEFORE clipping
+        predictions = np.nan_to_num(predictions, nan=0.0, posinf=1e10, neginf=-1e10)
+        true_values = np.nan_to_num(true_values, nan=0.0, posinf=1e10, neginf=-1e10)
+        
         # Clip predictions to prevent numerical overflow
         predictions = np.clip(predictions, -1e10, 1e10)
+        true_values = np.clip(true_values, -1e10, 1e10)
         
         mse = mean_squared_error(true_values, predictions)
         mae = mean_absolute_error(true_values, predictions)
@@ -394,12 +399,13 @@ class EvaluationMetrics:
                     # Wrong number of samples
                     return None
             
-            # Clip results to prevent numerical overflow
-            result = np.clip(result, -1e10, 1e10)
-            
+            # Handle non-finite values FIRST
             if not np.all(np.isfinite(result)):
-                # Replace non-finite values with small values
+                # Replace non-finite values with reasonable defaults
                 result = np.nan_to_num(result, nan=0.01, posinf=1e10, neginf=-1e10)
+            
+            # Then clip to prevent extreme values
+            result = np.clip(result, -1e10, 1e10)
             
             return result
             

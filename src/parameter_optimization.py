@@ -325,12 +325,13 @@ class ParameterOptimizer:
             
             result = np.array(result, dtype=float)
             
-            # Clip results to prevent numerical overflow
-            result = np.clip(result, -1e10, 1e10)
-            
+            # Handle non-finite values FIRST
             if not np.all(np.isfinite(result)):
-                # Replace non-finite values
+                # Replace non-finite values with reasonable defaults
                 result = np.nan_to_num(result, nan=0.01, posinf=1e10, neginf=-1e10)
+            
+            # Then clip to prevent extreme values
+            result = np.clip(result, -1e10, 1e10)
             
             return result
             
