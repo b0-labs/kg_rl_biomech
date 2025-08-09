@@ -350,13 +350,22 @@ class BiologicalMDP:
         if constraints:
             constraint = constraints[0]
             
+            # Use log-scale midpoint for parameters that vary over orders of magnitude
+            def get_initial_value(param_name, bounds):
+                min_val, max_val = float(bounds[0]), float(bounds[1])
+                # Use geometric mean for parameters with wide ranges
+                if max_val / min_val > 100:  # Wide range
+                    return np.sqrt(min_val * max_val)
+                else:
+                    return (min_val + max_val) / 2
+            
             new_node = MechanismNode(
                 node_id=self._generate_node_id(),
                 node_type="entity",
                 entity_id=action.entity_id,
                 relation_type=action.relation_type,
                 functional_form=constraint.functional_form,
-                parameters={param: (bounds[0] + bounds[1]) / 2 
+                parameters={param: get_initial_value(param, bounds)
                           for param, bounds in constraint.parameter_bounds.items()}
             )
             
