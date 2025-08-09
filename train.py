@@ -206,7 +206,8 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
     for episode in pbar:
         episode_stats = trainer.train_episode(system.data_X, system.data_y)
         
-        if episode % 10 == 0 and episode > 0:
+        # Update more frequently for better learning
+        if episode % 3 == 0 and episode > 0:  # Changed from 10 to 3
             trainer.update_networks()
         
         # More frequent logging - every 20 episodes instead of 100
@@ -248,7 +249,7 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
         last_best_score = episode_stats['best_score']
         
         # Early stopping if stuck for too long
-        if stuck_counter > 100:
+        if stuck_counter > 50:  # Reduced from 100 to 50 for faster stopping
             logger.warning(f"Training stuck for {stuck_counter} episodes, early stopping")
             break
         

@@ -71,24 +71,24 @@ class RewardFunction:
         
         improvement = next_likelihood - current_likelihood
         
-        # Add a small bonus for increasing complexity early on
+        # Only give complexity bonus if there's also likelihood improvement
         complexity_diff = next_state.mechanism_tree.get_complexity() - state.mechanism_tree.get_complexity()
-        if complexity_diff > 0 and state.mechanism_tree.get_complexity() < 3:
-            improvement += 0.5 * complexity_diff
+        if complexity_diff > 0 and improvement > 0:  # Changed condition
+            improvement += 0.1 * complexity_diff  # Reduced from 0.5
         
-        # Use a softer normalization to preserve more signal
-        normalized_improvement = np.tanh(improvement / 5.0)  # Changed from 10.0 to 5.0
+        # Use stronger signal for likelihood changes
+        normalized_improvement = np.tanh(improvement / 2.0)  # Changed from 5.0 to 2.0
         
         return normalized_improvement
     
     def _evaluate_likelihood(self, state: MDPState) -> float:
         complexity = state.mechanism_tree.get_complexity()
         
-        # For very simple mechanisms, return a small negative value that scales with complexity
-        # This encourages building more complex mechanisms without harsh penalties
-        if complexity <= 1:
-            # Return a small negative value that improves as complexity approaches 1
-            return -2.0 * (2.0 - complexity)  # -4 for complexity=0, -2 for complexity=1
+        # For very simple mechanisms, return a negative value but try to evaluate if possible
+        if complexity == 0:
+            return -10.0  # Empty mechanism
+        elif complexity == 1:
+            return -5.0  # Too simple to be useful
         
         try:
             mechanism_expr = state.mechanism_tree.to_expression()
