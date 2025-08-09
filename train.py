@@ -43,7 +43,35 @@ def setup_logging(config: Dict) -> logging.Logger:
 def load_config(config_path: str) -> Dict:
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-    return config
+
+    def _coerce(value):
+        # Recursively coerce string scalars that look like numbers/bools into proper types
+        if isinstance(value, dict):
+            return {k: _coerce(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [_coerce(v) for v in value]
+        if isinstance(value, str):
+            s = value.strip()
+            # Booleans
+            if s.lower() in ("true", "false"):
+                return s.lower() == "true"
+            # Nulls
+            if s.lower() in ("null", "none"):  # noqa: E714
+                return None
+            # Integers
+            try:
+                if s.isdigit() or (s.startswith('-') and s[1:].isdigit()):
+                    return int(s)
+            except Exception:
+                pass
+            # Floats (supports scientific notation)
+            try:
+                return float(s)
+            except Exception:
+                return value
+        return value
+
+    return _coerce(config)
 
 def _update_mechanism_parameters(node, optimized_params: Dict[str, float]):
     """Recursively update parameters in mechanism tree"""
