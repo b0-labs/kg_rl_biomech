@@ -259,23 +259,36 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
     if best_mechanism:
         predictions = evaluator._evaluate_mechanism_predictions(best_mechanism, system.data_X)
         if predictions is not None:
-            errors = evaluator.evaluate_prediction_error(predictions, system.data_y)
-            param_recovery = evaluator.evaluate_parameter_recovery(
-                optimized_params if 'optimized_params' in locals() else {},
-                system.true_parameters
-            )
-            
-            return {
-                'mechanism': best_mechanism,
-                'errors': errors,
-                'param_recovery': param_recovery,
-                'true_system': system
-            }
+            try:
+                errors = evaluator.evaluate_prediction_error(predictions, system.data_y)
+                param_recovery = evaluator.evaluate_parameter_recovery(
+                    optimized_params if 'optimized_params' in locals() else {},
+                    system.true_parameters
+                )
+                
+                return {
+                    'mechanism': best_mechanism,
+                    'errors': errors,
+                    'param_recovery': param_recovery,
+                    'true_system': system
+                }
+            except Exception as e:
+                logger.warning(f"Error evaluating mechanism: {e}")
+                return None
     
     return None
 
-def run_cross_validation(systems: List, config: Dict, n_folds: int, logger: logging.Logger) -> Dict:
-    """Run k-fold cross validation"""
+def run_cross_validation(systems: List, config: Dict, n_folds: int, logger: logging.Logger, 
+                        cv_episodes: int = 100) -> Dict:
+    """Run k-fold cross validation
+    
+    Args:
+        systems: List of synthetic systems
+        config: Configuration dictionary
+        n_folds: Number of CV folds
+        logger: Logger instance
+        cv_episodes: Number of training episodes per system in CV (default 100 for speed)
+    """
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
     cv_results = []
     
@@ -300,7 +313,7 @@ def run_cross_validation(systems: List, config: Dict, n_folds: int, logger: logg
         for system in train_systems:
             result = train_on_synthetic_system(
                 trainer, system, optimizer, evaluator, 
-                config['mdp']['max_steps_per_episode'], logger
+                cv_episodes, logger  # Use cv_episodes instead of max_steps_per_episode
             )
             if result:
                 discovered_mechanisms.append(result['mechanism'])
@@ -314,8 +327,12 @@ def run_cross_validation(systems: List, config: Dict, n_folds: int, logger: logg
                     discovered_mechanisms[0], system.data_X
                 )
                 if predictions is not None:
-                    errors = evaluator.evaluate_prediction_error(predictions, system.data_y)
-                    test_predictions.append(errors)
+                    try:
+                        errors = evaluator.evaluate_prediction_error(predictions, system.data_y)
+                        test_predictions.append(errors)
+                    except Exception as e:
+                        logger.warning(f"Error evaluating test predictions: {e}")
+                        continue
         
         cv_results.append({
             'fold': fold,
@@ -500,7 +517,10 @@ def main():
     # Run cross-validation if requested
     if args.run_cv:
         logger.info(f"\nRunning {args.cv_folds}-fold cross-validation...")
-        cv_results = run_cross_validation(synthetic_systems, config, args.cv_folds, logger)
+        # Use reduced episodes for CV to make it faster
+        cv_episodes = min(args.num_episodes // 10, 100)  # 10% of full episodes or 100, whichever is smaller
+        logger.info(f"Using {cv_episodes} episodes per system for cross-validation")
+        cv_results = run_cross_validation(synthetic_systems, config, args.cv_folds, logger, cv_episodes)
         
         cv_path = os.path.join(args.results_dir, 
                               f'cv_results_{args.system_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')

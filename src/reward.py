@@ -142,10 +142,21 @@ class RewardFunction:
             
             result = eval(expression, {"__builtins__": {}}, safe_dict)
             
+            # Ensure result is an array with proper shape
+            n_samples = len(X)
             if isinstance(result, (int, float)):
-                result = np.full(len(X), result)
+                result = np.full(n_samples, result)
+            else:
+                result = np.array(result)
             
-            result = np.array(result)
+            # Ensure proper shape
+            if result.shape != (n_samples,):
+                if result.ndim == 0:
+                    # Scalar case
+                    result = np.full(n_samples, result.item())
+                elif result.shape[0] != n_samples:
+                    # Wrong number of samples
+                    return None
             
             if not np.all(np.isfinite(result)):
                 return None

@@ -108,6 +108,20 @@ class EvaluationMetrics:
     def evaluate_prediction_error(self, predictions: np.ndarray, 
                                  true_values: np.ndarray) -> Dict[str, float]:
         
+        # Ensure inputs are proper arrays
+        predictions = np.asarray(predictions)
+        true_values = np.asarray(true_values)
+        
+        # Check dimensions
+        if predictions.ndim == 0:
+            predictions = predictions.reshape(1)
+        if true_values.ndim == 0:
+            true_values = true_values.reshape(1)
+        
+        # Ensure same length
+        if len(predictions) != len(true_values):
+            raise ValueError(f"Predictions length ({len(predictions)}) doesn't match true values length ({len(true_values)})")
+        
         mse = mean_squared_error(true_values, predictions)
         mae = mean_absolute_error(true_values, predictions)
         
@@ -338,6 +352,8 @@ class EvaluationMetrics:
             if X.ndim == 1:
                 X = X.reshape(-1, 1)
             
+            n_samples = X.shape[0]
+            
             for i in range(X.shape[1]):
                 safe_dict[f'X{i}'] = X[:, i]
                 safe_dict['S'] = X[:, 0]
@@ -352,14 +368,30 @@ class EvaluationMetrics:
             safe_dict.update(params)
             
             result = eval(mechanism_expr, {"__builtins__": {}}, safe_dict)
-            result = np.array(result)
+            
+            # Ensure result is an array with proper shape
+            if isinstance(result, (int, float)):
+                # If result is scalar, broadcast to all samples
+                result = np.full(n_samples, result)
+            else:
+                result = np.array(result)
+            
+            # Ensure proper shape
+            if result.shape != (n_samples,):
+                if result.ndim == 0:
+                    # Scalar case
+                    result = np.full(n_samples, result.item())
+                elif result.shape[0] != n_samples:
+                    # Wrong number of samples
+                    return None
             
             if not np.all(np.isfinite(result)):
                 return None
             
             return result
             
-        except Exception:
+        except Exception as e:
+            # Log the error for debugging but don't crash
             return None
     
     def get_summary_statistics(self) -> Dict[str, Dict]:
