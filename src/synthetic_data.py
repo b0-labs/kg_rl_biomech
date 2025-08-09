@@ -76,7 +76,9 @@ class SyntheticDataGenerator:
         params = {'v_max': v_max, 'k_m': k_m}
         mechanism = f"v_max * S / (k_m + S)"
         
-        S_values = np.logspace(-9, -3, 50)
+        # Generate substrate values spanning reasonable range around Km
+        # From 0.01*Km to 100*Km approximately
+        S_values = np.logspace(-3, 1, 50)  # 0.001 to 10
         v_values = v_max * S_values / (k_m + S_values)
         
         v_noisy = self._add_noise(v_values, NoiseType.COMBINED)
@@ -101,8 +103,9 @@ class SyntheticDataGenerator:
         mechanism = f"v_max * S / (k_m * (1 + I/k_i) + S)"
         
         n_points = 50
-        S_values = np.logspace(-9, -3, n_points)
-        I_values = np.logspace(-9, -4, n_points)
+        # Generate substrate and inhibitor values in reasonable ranges
+        S_values = np.logspace(-3, 1, n_points)  # 0.001 to 10
+        I_values = np.logspace(-3, 0, n_points)  # 0.001 to 1
         
         X = np.column_stack([S_values, I_values])
         
@@ -131,8 +134,9 @@ class SyntheticDataGenerator:
         mechanism = f"v_max * S**n / (k_m**n + S**n) * (1 + alpha * A/k_a) / (1 + A/k_a)"
         
         n_points = 50
-        S_values = np.logspace(-9, -3, n_points)
-        A_values = np.logspace(-9, -4, n_points)
+        # Generate substrate and allosteric modulator values in reasonable ranges
+        S_values = np.logspace(-3, 1, n_points)  # 0.001 to 10
+        A_values = np.logspace(-3, 0, n_points)  # 0.001 to 1
         
         X = np.column_stack([S_values, A_values])
         
@@ -161,9 +165,10 @@ class SyntheticDataGenerator:
         mechanism = f"v_max * S1 * S2 / ((k_m1 + S1) * (k_m2 + S2) * (1 + P/k_p))"
         
         n_points = 30
-        S1_values = np.logspace(-9, -3, n_points)
-        S2_values = np.logspace(-9, -3, n_points)
-        P_values = np.logspace(-9, -5, n_points)
+        # Generate substrate and product values in reasonable ranges
+        S1_values = np.logspace(-3, 1, n_points)  # 0.001 to 10
+        S2_values = np.logspace(-3, 1, n_points)  # 0.001 to 10
+        P_values = np.logspace(-3, 0, n_points)  # 0.001 to 1
         
         X = np.column_stack([S1_values, S2_values, P_values])
         
@@ -203,7 +208,8 @@ class SyntheticDataGenerator:
             
             # Solve multi-scale ODEs
             time_points = np.linspace(0, 100, 50)
-            D_values = np.logspace(-9, -6, 50)
+            # Generate drug concentrations in reasonable range (nM to mM)
+            D_values = np.logspace(-9, -3, 50)  # 1 nM to 1 mM
             
             responses = []
             for D in D_values:
