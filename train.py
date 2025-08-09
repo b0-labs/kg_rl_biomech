@@ -249,9 +249,13 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
         last_best_score = episode_stats['best_score']
         
         # Early stopping if stuck for too long
-        if stuck_counter > 50:  # Reduced from 100 to 50 for faster stopping
+        if stuck_counter > 30:  # Reduced to 30 for even faster stopping
             logger.warning(f"Training stuck for {stuck_counter} episodes, early stopping")
-            break
+            # Reset stuck counter and try different exploration
+            stuck_counter = 0
+            trainer.epsilon = min(1.0, trainer.epsilon * 2.0)  # Increase exploration
+            if best_score < -500:  # If still no good mechanism found
+                break
         
         # Check convergence
         trainer.update_performance_history(episode_stats['episode_reward'])

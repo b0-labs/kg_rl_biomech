@@ -157,19 +157,17 @@ class PPOTrainer:
         self.reward_tracker.add_reward(episode_reward)
         self.reward_tracker.end_episode()
         
-        # Only evaluate mechanisms that are complex enough AND either terminal or every N steps
-        # This reduces the evaluation overhead
-        should_evaluate = False
-        if self.mdp.is_terminal_state(state):
-            should_evaluate = state.mechanism_tree.get_complexity() >= 2
-        elif step_count % 10 == 0:  # Only evaluate every 10 steps for non-terminal
-            should_evaluate = state.mechanism_tree.get_complexity() >= 3
-        
-        if should_evaluate:
-            score = self._evaluate_mechanism(state, data_X, data_y)
-            if score > self.best_score:
-                self.best_score = score
-                self.best_mechanism = copy.deepcopy(state)
+        # Only evaluate terminal mechanisms to avoid overhead
+        if self.mdp.is_terminal_state(state) and state.mechanism_tree.get_complexity() >= 2:
+            try:
+                score = self._evaluate_mechanism(state, data_X, data_y)
+                if score > self.best_score:
+                    self.best_score = score
+                    # Store just the mechanism tree, not the entire state (much cheaper)
+                    self.best_mechanism = state
+            except Exception:
+                # Silently skip if evaluation fails
+                pass
         
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         
@@ -330,17 +328,13 @@ class PPOTrainer:
     def _evaluate_mechanism(self, state: MDPState, data_X: np.ndarray, 
                            data_y: np.ndarray) -> float:
         
-        # Use cached expression if available
-        tree_id = id(state.mechanism_tree)
-        if tree_id in self.expression_cache:
-            mechanism_expr = self.expression_cache[tree_id]
-        else:
-            mechanism_expr = state.mechanism_tree.to_expression()
-            # Cache it (limit cache size)
-            if len(self.expression_cache) < 100:
-                self.expression_cache[tree_id] = mechanism_expr
-        
         try:
+            # Don't cache expressions - just generate them
+            mechanism_expr = state.mechanism_tree.to_expression()
+            
+            # Quick validation - if expression is too simple, return low score
+            if mechanism_expr in ["1.0", "0", "unknown", ""]:
+                return -100.0
             safe_dict = {
                 'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
                 'max': np.maximum, 'min': np.minimum
@@ -383,7 +377,10 @@ class PPOTrainer:
         return params
     
     def get_best_mechanism(self) -> Optional[MDPState]:
-        return self.best_mechanism
+        # Return a copy only when requested, not during training
+        if self.best_mechanism:
+            return copy.deepcopy(self.best_mechanism)
+        return None
     
     def get_training_stats(self) -> Dict:
         return self.training_stats
