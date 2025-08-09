@@ -4,7 +4,7 @@
 import os
 import sys
 from train import load_config, setup_logging
-from src.knowledge_graph import KnowledgeGraph
+from src.knowledge_graph import KnowledgeGraph, BiologicalEntity, BiologicalRelationship, RelationType
 
 def rebuild_kg():
     """Rebuild the knowledge graph from scratch with all constraints"""
@@ -47,7 +47,6 @@ def rebuild_kg():
         kg = KnowledgeGraph(config)
         
         # Add basic entities for testing
-        from src.knowledge_graph import BiologicalEntity, BiologicalRelationship, RelationType
         
         # Enzymes
         for i in range(1, 6):
