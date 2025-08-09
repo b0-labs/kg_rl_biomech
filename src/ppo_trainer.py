@@ -110,8 +110,8 @@ class PPOTrainer:
         # Cache for mechanism expressions to avoid repeated generation
         self.expression_cache = {}
         
-        # Warmup the networks to avoid first-episode slowdown
-        self._warmup_networks()
+        # Skip warmup for now - it might be causing issues
+        # self._warmup_networks()
     
     def train_episode(self, data_X: np.ndarray, data_y: np.ndarray) -> Dict:
         self.reward_function.set_data(data_X, data_y)
@@ -157,17 +157,18 @@ class PPOTrainer:
         self.reward_tracker.add_reward(episode_reward)
         self.reward_tracker.end_episode()
         
-        # Only evaluate terminal mechanisms to avoid overhead
-        if self.mdp.is_terminal_state(state) and state.mechanism_tree.get_complexity() >= 2:
-            try:
-                score = self._evaluate_mechanism(state, data_X, data_y)
-                if score > self.best_score:
-                    self.best_score = score
-                    # Store just the mechanism tree, not the entire state (much cheaper)
-                    self.best_mechanism = state
-            except Exception:
-                # Silently skip if evaluation fails
-                pass
+        # Evaluate ANY terminal mechanism with complexity > 1
+        if self.mdp.is_terminal_state(state):
+            complexity = state.mechanism_tree.get_complexity()
+            if complexity > 1:
+                try:
+                    score = self._evaluate_mechanism(state, data_X, data_y)
+                    if score > self.best_score:
+                        self.best_score = score
+                        self.best_mechanism = state  # Store reference
+                except Exception as e:
+                    # Log the error for debugging
+                    pass
         
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         

@@ -206,8 +206,8 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
     for episode in pbar:
         episode_stats = trainer.train_episode(system.data_X, system.data_y)
         
-        # Update more frequently for better learning
-        if episode % 3 == 0 and episode > 0:  # Changed from 10 to 3
+        # Update less frequently to avoid blocking
+        if episode % 20 == 0 and episode > 0:  # Changed back to less frequent
             trainer.update_networks()
         
         # More frequent logging - every 20 episodes instead of 100

@@ -157,11 +157,14 @@ class MDPState:
         return params
     
     def deep_copy(self) -> 'MDPState':
-        # OPTIMIZED: Use shallow copies where possible
+        # OPTIMIZED: Use shallow copies and limit history size
+        # Limit construction history to last 20 items to prevent unbounded growth
+        history = self.construction_history[-20:] if len(self.construction_history) > 20 else self.construction_history
+        
         return MDPState(
             mechanism_tree=self.mechanism_tree.deep_copy(),
             available_entities=set(self.available_entities),  # Shallow copy
-            construction_history=list(self.construction_history),  # Shallow copy
+            construction_history=list(history),  # Limited shallow copy
             parameter_constraints=dict(self.parameter_constraints),  # Shallow copy
             step_count=self.step_count,
             is_terminal=self.is_terminal
