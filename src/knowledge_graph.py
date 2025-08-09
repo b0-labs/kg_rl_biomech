@@ -104,13 +104,13 @@ class KnowledgeGraph:
             ),
             MathematicalConstraint(
                 "multi_substrate",
-                "v_max * S1 * S2 / ((k_m1 + S1) * (k_m2 + S2))",
-                {"v_max": (1e-3, 1e3), "k_m1": (1e-6, 1e3), "k_m2": (1e-6, 1e3)}
+                "(v_max * S1 * S2) / ((k_m1 + S1) * (k_m2 + S2))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0)}
             ),
             MathematicalConstraint(
                 "product_inhibition",
-                "v_max * S / (k_m + S) * (1 / (1 + P/k_p))",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3), "k_p": (1e-6, 1e3)}
+                "((v_max * S) / (k_m + S)) * (1.0 / (1.0 + P / k_p))",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_p": (0.000001, 1000.0)}
             )
         ]
         
@@ -118,30 +118,30 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.COMPETITIVE_INHIBITION] = [
             MathematicalConstraint(
                 "competitive_mm",
-                "v_max * S / (k_m * (1 + I/k_i) + S)",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3), "k_i": (1e-6, 1e3)}
+                "(v_max * S) / (k_m * (1.0 + I / k_i) + S)",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_i": (0.000001, 1000.0)}
             ),
             MathematicalConstraint(
                 "competitive_binding",
-                "L / (k_d * (1 + C/k_c) + L)",
-                {"k_d": (1e-9, 1e-3), "k_c": (1e-9, 1e-3)}
+                "L / (k_d * (1.0 + C / k_c) + L)",
+                {"k_d": (0.000000001, 0.001), "k_c": (0.000000001, 0.001)}
             )
         ]
         
         self.mathematical_constraints[RelationType.NON_COMPETITIVE_INHIBITION] = [
             MathematicalConstraint(
                 "non_competitive_mm",
-                "v_max * S / ((k_m + S) * (1 + I/k_i))",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3), "k_i": (1e-6, 1e3)}
+                "(v_max * S) / ((k_m + S) * (1.0 + I / k_i))",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_i": (0.000001, 1000.0)}
             )
         ]
         
         self.mathematical_constraints[RelationType.ALLOSTERIC_REGULATION] = [
             MathematicalConstraint(
                 "allosteric_hill",
-                "v_max * S^n / (k_m^n + S^n) * (1 + alpha * A/k_a) / (1 + A/k_a)",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3), "n": (0.5, 4.0), 
-                 "alpha": (0.1, 10.0), "k_a": (1e-6, 1e3)}
+                "((v_max * (S ** n)) / ((k_m ** n) + (S ** n))) * ((1.0 + alpha * A / k_a) / (1.0 + A / k_a))",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "n": (0.5, 4.0), 
+                 "alpha": (0.1, 10.0), "k_a": (0.000001, 1000.0)}
             )
         ]
         
@@ -149,23 +149,23 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.BINDING] = [
             MathematicalConstraint(
                 "simple_binding",
-                "k_on * D * R - k_off * DR",
-                {"k_on": (1e3, 1e9), "k_off": (1e-3, 1e3)}
+                "(k_on * D * R) - (k_off * DR)",
+                {"k_on": (1000.0, 1000000000.0), "k_off": (0.001, 1000.0)}
             ),
             MathematicalConstraint(
                 "receptor_occupancy",
                 "DR / (DR + k_d)",
-                {"k_d": (1e-9, 1e-3)}
+                {"k_d": (0.000000001, 0.001)}
             ),
             MathematicalConstraint(
                 "cooperative_binding",
-                "L^n / (k_d^n + L^n)",
-                {"k_d": (1e-9, 1e-3), "n": (1.0, 4.0)}
+                "(L ** n) / ((k_d ** n) + (L ** n))",
+                {"k_d": (0.000000001, 0.001), "n": (1.0, 4.0)}
             ),
             MathematicalConstraint(
                 "two_site_binding",
-                "(B_max1 * L) / (k_d1 + L) + (B_max2 * L) / (k_d2 + L)",
-                {"B_max1": (0.1, 100), "B_max2": (0.1, 100), "k_d1": (1e-9, 1e-3), "k_d2": (1e-9, 1e-3)}
+                "((B_max1 * L) / (k_d1 + L)) + ((B_max2 * L) / (k_d2 + L))",
+                {"B_max1": (0.1, 100.0), "B_max2": (0.1, 100.0), "k_d1": (0.000000001, 0.001), "k_d2": (0.000000001, 0.001)}
             )
         ]
         
@@ -173,18 +173,18 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.TRANSPORT] = [
             MathematicalConstraint(
                 "facilitated_diffusion",
-                "v_max * (S_out - S_in) / (k_m + S_out + S_in)",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3)}
+                "(v_max * (S_out - S_in)) / (k_m + S_out + S_in)",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0)}
             ),
             MathematicalConstraint(
                 "active_transport",
-                "v_max * S / (k_m + S) * ATP / (k_atp + ATP)",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3), "k_atp": (1e-6, 1e-3)}
+                "((v_max * S) / (k_m + S)) * (ATP / (k_atp + ATP))",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_atp": (0.000001, 0.001)}
             ),
             MathematicalConstraint(
                 "ion_channel",
                 "g * P_open * (V - E_rev)",
-                {"g": (1e-12, 1e-6), "P_open": (0, 1), "E_rev": (-100, 100)}
+                {"g": (0.000000000001, 0.000001), "P_open": (0.0, 1.0), "E_rev": (-100.0, 100.0)}
             )
         ]
         
@@ -192,25 +192,25 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.ENZYME_INDUCTION] = [
             MathematicalConstraint(
                 "induction_hill",
-                "v_max_0 * (1 + I_max * S^n / (IC50^n + S^n))",
-                {"v_max_0": (1e-3, 1e3), "I_max": (1.0, 10.0), 
-                 "IC50": (1e-9, 1e-3), "n": (0.5, 4.0)}
+                "v_max_0 * (1.0 + (I_max * (S ** n)) / ((IC50 ** n) + (S ** n)))",
+                {"v_max_0": (0.001, 1000.0), "I_max": (1.0, 10.0), 
+                 "IC50": (0.000000001, 0.001), "n": (0.5, 4.0)}
             )
         ]
         
         self.mathematical_constraints[RelationType.INDUCES] = [
             MathematicalConstraint(
                 "fold_induction",
-                "fold * S^n / (EC50^n + S^n)",
-                {"fold": (1.0, 100.0), "EC50": (1e-9, 1e-3), "n": (0.5, 4.0)}
+                "(fold * (S ** n)) / ((EC50 ** n) + (S ** n))",
+                {"fold": (1.0, 100.0), "EC50": (0.000000001, 0.001), "n": (0.5, 4.0)}
             )
         ]
         
         self.mathematical_constraints[RelationType.REPRESSES] = [
             MathematicalConstraint(
                 "gene_repression",
-                "1 / (1 + (S/IC50)^n)",
-                {"IC50": (1e-9, 1e-3), "n": (0.5, 4.0)}
+                "1.0 / (1.0 + ((S / IC50) ** n))",
+                {"IC50": (0.000000001, 0.001), "n": (0.5, 4.0)}
             )
         ]
 
@@ -218,8 +218,8 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.INHIBITS] = [
             MathematicalConstraint(
                 "inhibitory_regulation",
-                "1 / (1 + (S/IC50)^n)",
-                {"IC50": (1e-9, 1e-3), "n": (0.5, 4.0)}
+                "1.0 / (1.0 + ((S / IC50) ** n))",
+                {"IC50": (0.000000001, 0.001), "n": (0.5, 4.0)}
             )
         ]
         
