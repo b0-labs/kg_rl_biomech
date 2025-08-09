@@ -366,12 +366,36 @@ class BiologicalMDP:
             
             # Prioritize multi-substrate forms for multi-dimensional data
             if self.input_dimensions > 1:
-                # Look for multi-substrate forms first
-                multi_substrate_keywords = ['multi_substrate', 'X0', 'X1', 'X2', 'S1', 'S2']
+                # Count how many X variables each constraint uses
+                best_constraint = None
+                max_dims_used = 0
+                
                 for constraint in constraints:
-                    if any(keyword in constraint.functional_form for keyword in multi_substrate_keywords):
-                        selected_constraint = constraint
-                        break
+                    dims_used = 0
+                    form = constraint.functional_form
+                    
+                    # Count X0, X1, X2... usage
+                    for i in range(self.input_dimensions):
+                        if f'X{i}' in form:
+                            dims_used += 1
+                    
+                    # Also check for S1, S2, P patterns
+                    if self.input_dimensions >= 2 and ('S1' in form or 'S2' in form):
+                        dims_used = max(dims_used, 2)
+                    if self.input_dimensions >= 3 and ('P' in form or 'X2' in form):
+                        # Prioritize forms with product inhibition for 3D data
+                        dims_used = max(dims_used, 3)
+                    
+                    # Select constraint that uses most dimensions
+                    if dims_used > max_dims_used:
+                        max_dims_used = dims_used
+                        best_constraint = constraint
+                    # If tie, prefer more complex forms for 3+ dimensions
+                    elif dims_used == max_dims_used and self.input_dimensions >= 3:
+                        if 'inhibition' in constraint.constraint_type or 'product' in constraint.constraint_type:
+                            best_constraint = constraint
+                
+                selected_constraint = best_constraint
             
             # Fallback to first constraint if no multi-substrate found or single dimension
             if selected_constraint is None:
