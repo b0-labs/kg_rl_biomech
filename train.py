@@ -521,8 +521,8 @@ def main():
     # Run cross-validation if requested
     if args.run_cv:
         logger.info(f"\nRunning {args.cv_folds}-fold cross-validation...")
-        # Use reduced episodes for CV to make it faster
-        cv_episodes = min(args.num_episodes // 10, 100)  # 10% of full episodes or 100, whichever is smaller
+        # Use full episodes for CV as requested
+        cv_episodes = args.num_episodes
         logger.info(f"Using {cv_episodes} episodes per system for cross-validation")
         cv_results = run_cross_validation(synthetic_systems, config, args.cv_folds, logger, cv_episodes)
         

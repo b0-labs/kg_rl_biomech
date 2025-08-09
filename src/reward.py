@@ -38,11 +38,12 @@ class RewardFunction:
         violation_penalty = self._compute_violation_penalty(next_state)
         
         # Add exploration bonus for early steps to encourage building
+        # But keep it smaller so data fitting is more important
         exploration_bonus = 0.0
-        if state.mechanism_tree.get_complexity() < 5:
-            exploration_bonus = 1.0  # Larger bonus for taking actions early
-        elif state.mechanism_tree.get_complexity() < 10:
-            exploration_bonus = 0.5  # Medium bonus for moderate complexity
+        if state.mechanism_tree.get_complexity() < 3:
+            exploration_bonus = 0.1  # Small bonus for very early actions
+        elif state.mechanism_tree.get_complexity() < 5:
+            exploration_bonus = 0.05  # Tiny bonus for moderate complexity
         
         reward = (
             self.lambda_likelihood * likelihood_improvement +

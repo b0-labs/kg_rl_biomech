@@ -133,9 +133,9 @@ ppo:
   
 # Reward Function Weights
 reward:
-  lambda_likelihood: 1.0
-  lambda_plausibility: 0.3  # Reduced to not overwhelm likelihood
-  lambda_interpretability: 0.2  # Reduced
+  lambda_likelihood: 2.0  # Increased to prioritize data fitting
+  lambda_plausibility: 0.2  # Reduced to not overwhelm likelihood
+  lambda_interpretability: 0.1  # Reduced
   lambda_action_penalty: 0.001  # Much smaller penalty
   lambda_violation_penalty: 1.0  # Reduced violation penalty
   complexity_penalty: 0.05  # Reduced complexity penalty
