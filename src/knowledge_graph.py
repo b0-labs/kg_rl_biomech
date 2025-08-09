@@ -26,6 +26,7 @@ class RelationType(Enum):
     # Regulatory Relationships
     INDUCES = "induces"
     REPRESSES = "represses"
+    INHIBITS = "inhibits"
     PHOSPHORYLATES = "phosphorylates"
     ENZYME_INDUCTION = "enzyme_induction"
     
@@ -208,6 +209,15 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.REPRESSES] = [
             MathematicalConstraint(
                 "gene_repression",
+                "1 / (1 + (S/IC50)^n)",
+                {"IC50": (1e-9, 1e-3), "n": (0.5, 4.0)}
+            )
+        ]
+
+        # General inhibitory regulation
+        self.mathematical_constraints[RelationType.INHIBITS] = [
+            MathematicalConstraint(
+                "inhibitory_regulation",
                 "1 / (1 + (S/IC50)^n)",
                 {"IC50": (1e-9, 1e-3), "n": (0.5, 4.0)}
             )
