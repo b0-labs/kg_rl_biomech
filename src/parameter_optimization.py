@@ -321,7 +321,15 @@ class ParameterOptimizer:
                     safe_dict[f'A'] = X[:, 2]
                     safe_dict[f'P'] = X[:, 2]
             
-            safe_dict.update(params)
+            # Add parameters both with and without node prefixes
+            for param_name, value in params.items():
+                safe_dict[param_name] = value
+                # Also add without node prefix
+                if '_' in param_name:
+                    parts = param_name.split('_')
+                    if parts[0] == 'node' and len(parts) > 2 and parts[1].isdigit():
+                        base_name = '_'.join(parts[2:])
+                        safe_dict[base_name] = value
             
             result = eval(expression, {"__builtins__": {}}, safe_dict)
             
