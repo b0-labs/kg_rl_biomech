@@ -451,9 +451,20 @@ class KnowledgeGraph:
             print("To enable, ensure kg_loader_unified.py is properly installed")
     
     def save(self, filepath: str):
+        # Serialize relationships with a JSON-friendly relation_type
+        relationships_serialized = []
+        for r in self.relationships:
+            rel_dict = dict(r.__dict__)
+            if isinstance(r.relation_type, RelationType):
+                rel_dict['relation_type'] = r.relation_type.value
+            else:
+                # Fallback: stringify
+                rel_dict['relation_type'] = str(r.relation_type)
+            relationships_serialized.append(rel_dict)
+
         graph_data = {
             'entities': {k: v.__dict__ for k, v in self.entities.items()},
-            'relationships': [r.__dict__ for r in self.relationships],
+            'relationships': relationships_serialized,
             'graph': nx.node_link_data(self.graph)
         }
         import json
@@ -470,7 +481,41 @@ class KnowledgeGraph:
             self.add_entity(entity)
         
         for rel_data in graph_data['relationships']:
-            rel_data['relation_type'] = RelationType(rel_data['relation_type'])
+            raw = rel_data.get('relation_type')
+            parsed_type = None
+            # Already an enum
+            if isinstance(raw, RelationType):
+                parsed_type = raw
+            # Strings from earlier caches or different serializers
+            elif isinstance(raw, str):
+                # Handle formats like "RelationType.SUBSTRATE_OF"
+                if raw.startswith('RelationType.'):
+                    name = raw.split('.', 1)[1]
+                    try:
+                        parsed_type = RelationType[name]
+                    except KeyError:
+                        # Fall back to enum value if name lookup fails
+                        try:
+                            parsed_type = RelationType(name.lower())
+                        except Exception:
+                            parsed_type = None
+                if parsed_type is None:
+                    # Try enum NAME (e.g., SUBSTRATE_OF)
+                    try:
+                        parsed_type = RelationType[raw]
+                    except KeyError:
+                        # Try enum VALUE (e.g., "substrate_of")
+                        parsed_type = RelationType(raw)
+            else:
+                # Unknown format – try direct construction
+                try:
+                    parsed_type = RelationType(raw)
+                except Exception:
+                    pass
+
+            if parsed_type is None:
+                raise ValueError(f"Unrecognized relation_type in cache: {raw}")
+            rel_data['relation_type'] = parsed_type
             relationship = BiologicalRelationship(**rel_data)
             self.add_relationship(relationship)
         
