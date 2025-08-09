@@ -134,17 +134,17 @@ ppo:
 # Reward Function Weights
 reward:
   lambda_likelihood: 1.0
-  lambda_plausibility: 0.5
-  lambda_interpretability: 0.3
-  lambda_action_penalty: 0.01
-  lambda_violation_penalty: 10.0
-  complexity_penalty: 0.1
+  lambda_plausibility: 0.3  # Reduced to not overwhelm likelihood
+  lambda_interpretability: 0.2  # Reduced
+  lambda_action_penalty: 0.001  # Much smaller penalty
+  lambda_violation_penalty: 1.0  # Reduced violation penalty
+  complexity_penalty: 0.05  # Reduced complexity penalty
   
 # Exploration Configuration
 exploration:
   epsilon_init: 1.0
-  epsilon_min: 0.05
-  epsilon_decay: 0.995
+  epsilon_min: 0.1  # Higher minimum for more exploration
+  epsilon_decay: 0.999  # Slower decay to maintain exploration longer
   
 # Parameter Optimization
 optimization:

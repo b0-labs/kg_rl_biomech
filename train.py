@@ -213,13 +213,17 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
         if episode % 20 == 0:
             logger.info(f"Episode {episode}: Reward={episode_stats['episode_reward']:.3f}, "
                        f"Best Score={episode_stats['best_score']:.3f}, "
-                       f"Steps={episode_stats.get('num_steps', 0)}")
+                       f"Steps={episode_stats.get('num_steps', 0)}, "
+                       f"Final Complexity={episode_stats.get('final_complexity', 0)}, "
+                       f"Terminal={episode_stats.get('is_terminal', False)}")
         
         # Update progress bar with current stats
+        best_complexity = best_mechanism.mechanism_tree.get_complexity() if best_mechanism else 0
         pbar.set_postfix({
             'reward': f"{episode_stats['episode_reward']:.3f}",
             'best': f"{episode_stats['best_score']:.3f}",
-            'stuck': stuck_counter
+            'stuck': stuck_counter,
+            'best_cmplx': best_complexity
         })
         
         current_best = trainer.get_best_mechanism()

@@ -39,8 +39,10 @@ class RewardFunction:
         
         # Add exploration bonus for early steps to encourage building
         exploration_bonus = 0.0
-        if state.mechanism_tree.get_complexity() < 3:
-            exploration_bonus = 0.2  # Small bonus for taking actions early
+        if state.mechanism_tree.get_complexity() < 5:
+            exploration_bonus = 1.0  # Larger bonus for taking actions early
+        elif state.mechanism_tree.get_complexity() < 10:
+            exploration_bonus = 0.5  # Medium bonus for moderate complexity
         
         reward = (
             self.lambda_likelihood * likelihood_improvement +
@@ -85,7 +87,7 @@ class RewardFunction:
         # This encourages building more complex mechanisms without harsh penalties
         if complexity <= 1:
             # Return a small negative value that improves as complexity approaches 1
-            return -10.0 * (2.0 - complexity)  # -20 for complexity=0, -10 for complexity=1
+            return -2.0 * (2.0 - complexity)  # -4 for complexity=0, -2 for complexity=1
         
         try:
             mechanism_expr = state.mechanism_tree.to_expression()
@@ -94,7 +96,7 @@ class RewardFunction:
             
             if predictions is None:
                 # Return a penalty that scales with complexity (less harsh for simple mechanisms)
-                return -50.0 / max(1, complexity)
+                return -5.0 / max(1, complexity)  # Much smaller penalty
             
             residuals = self.data['y'] - predictions
             neg_log_likelihood = 0.5 * np.sum(residuals ** 2) / len(residuals)
@@ -106,7 +108,7 @@ class RewardFunction:
             
         except Exception:
             # Return a penalty that scales with complexity
-            return -50.0 / max(1, complexity)
+            return -5.0 / max(1, complexity)  # Much smaller penalty
     
     def _evaluate_mechanism(self, expression: str, X: np.ndarray) -> Optional[np.ndarray]:
         try:
@@ -227,9 +229,10 @@ class RewardFunction:
     
     def _compute_action_penalty(self, action: Action) -> float:
         if action.action_type == ActionType.TERMINATE:
-            return 0.0
+            # Penalize early termination
+            return -0.5  # Negative penalty = bonus for terminating (when appropriate)
         elif action.action_type == ActionType.ADD_ENTITY:
-            return 0.1
+            return 0.05  # Reduced penalty for adding entities
         elif action.action_type == ActionType.MODIFY_PARAMETER:
             return 0.05
         elif action.action_type == ActionType.COMBINE_SUBTREES:

@@ -146,7 +146,15 @@ class PPOTrainer:
         self.reward_tracker.add_reward(episode_reward)
         self.reward_tracker.end_episode()
         
-        if self.mdp.is_terminal_state(state) and state.mechanism_tree.get_complexity() > 1:
+        # Evaluate and track best mechanism regardless of terminal state
+        # This helps us track progress even if model doesn't reach terminal states often
+        if state.mechanism_tree.get_complexity() >= 2:  # Lowered from > 1 to >= 2
+            score = self._evaluate_mechanism(state, data_X, data_y)
+            if score > self.best_score:
+                self.best_score = score
+                self.best_mechanism = copy.deepcopy(state)
+        elif self.mdp.is_terminal_state(state) and state.mechanism_tree.get_complexity() > 0:
+            # Also evaluate simpler terminal mechanisms
             score = self._evaluate_mechanism(state, data_X, data_y)
             if score > self.best_score:
                 self.best_score = score
