@@ -52,8 +52,13 @@ def debug_cached_kg():
         if hasattr(kg, 'mathematical_constraints'):
             print(f"   - Has {len(kg.mathematical_constraints)} constraints")
             # Sample a few
-            for i, (key, constraint) in enumerate(list(kg.mathematical_constraints.items())[:3]):
-                print(f"     {i+1}. {key}: {constraint.functional_form[:50]}...")
+            for i, (key, constraints) in enumerate(list(kg.mathematical_constraints.items())[:3]):
+                if isinstance(constraints, list):
+                    print(f"     {i+1}. {key}: {len(constraints)} constraints")
+                    if constraints and hasattr(constraints[0], 'functional_form'):
+                        print(f"        First: {constraints[0].functional_form[:50]}...")
+                else:
+                    print(f"     {i+1}. {key}: {constraints}")
         else:
             print("   - No mathematical_constraints attribute!")
     
