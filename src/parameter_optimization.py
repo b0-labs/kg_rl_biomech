@@ -271,15 +271,20 @@ class ParameterOptimizer:
         bounds = []
         
         for param_name in param_names:
-            base_param = param_name.split('_')[-1] if '_' in param_name else param_name
-            
-            if base_param in constraints:
-                bounds.append(constraints[base_param])
-            elif base_param in self.biological_params:
-                param_config = self.biological_params[base_param]
-                bounds.append((param_config['min'], param_config['max']))
+            # First check if the full param_name is in constraints (e.g., node_2_v_max)
+            if param_name in constraints:
+                bounds.append(constraints[param_name])
             else:
-                bounds.append((1e-6, 1e3))
+                # Then try the base parameter name (last part after underscore)
+                base_param = param_name.split('_')[-1] if '_' in param_name else param_name
+                
+                if base_param in constraints:
+                    bounds.append(constraints[base_param])
+                elif base_param in self.biological_params:
+                    param_config = self.biological_params[base_param]
+                    bounds.append((param_config['min'], param_config['max']))
+                else:
+                    bounds.append((1e-6, 1e3))
         
         return bounds
     
