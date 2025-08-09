@@ -302,7 +302,8 @@ class PolicyNetwork(nn.Module):
         if np.random.random() < epsilon:
             action_idx = np.random.choice(len(valid_actions))
             action = valid_actions[action_idx]
-            log_prob = torch.log(torch.tensor(1.0 / len(valid_actions)))
+            device = next(self.parameters()).device
+            log_prob = torch.log(torch.tensor(1.0 / len(valid_actions), device=device))
         else:
             with torch.no_grad():
                 action_probs = self.forward(state, valid_actions)

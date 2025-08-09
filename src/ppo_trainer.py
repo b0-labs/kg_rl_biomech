@@ -91,7 +91,8 @@ class PPOTrainer:
         self.reward_tracker = CumulativeRewardTracker()
         
         self.best_mechanism = None
-        self.best_score = float('-inf')
+        # Initialize with a reasonable negative value instead of -inf
+        self.best_score = -1000.0  # Changed from float('-inf')
         
         self.training_stats = {
             'episode_rewards': [],
@@ -105,6 +106,9 @@ class PPOTrainer:
         self.convergence_window = 100
         self.convergence_threshold = config['mdp'].get('convergence_threshold', 1e-4)
         self.performance_history = []
+        
+        # Cache for mechanism expressions to avoid repeated generation
+        self.expression_cache = {}
     
     def train_episode(self, data_X: np.ndarray, data_y: np.ndarray) -> Dict:
         self.reward_function.set_data(data_X, data_y)
@@ -150,15 +154,15 @@ class PPOTrainer:
         self.reward_tracker.add_reward(episode_reward)
         self.reward_tracker.end_episode()
         
-        # Evaluate and track best mechanism regardless of terminal state
-        # This helps us track progress even if model doesn't reach terminal states often
-        if state.mechanism_tree.get_complexity() >= 2:  # Lowered from > 1 to >= 2
-            score = self._evaluate_mechanism(state, data_X, data_y)
-            if score > self.best_score:
-                self.best_score = score
-                self.best_mechanism = copy.deepcopy(state)
-        elif self.mdp.is_terminal_state(state) and state.mechanism_tree.get_complexity() > 0:
-            # Also evaluate simpler terminal mechanisms
+        # Only evaluate mechanisms that are complex enough AND either terminal or every N steps
+        # This reduces the evaluation overhead
+        should_evaluate = False
+        if self.mdp.is_terminal_state(state):
+            should_evaluate = state.mechanism_tree.get_complexity() >= 2
+        elif step_count % 10 == 0:  # Only evaluate every 10 steps for non-terminal
+            should_evaluate = state.mechanism_tree.get_complexity() >= 3
+        
+        if should_evaluate:
             score = self._evaluate_mechanism(state, data_X, data_y)
             if score > self.best_score:
                 self.best_score = score
@@ -297,7 +301,15 @@ class PPOTrainer:
     def _evaluate_mechanism(self, state: MDPState, data_X: np.ndarray, 
                            data_y: np.ndarray) -> float:
         
-        mechanism_expr = state.mechanism_tree.to_expression()
+        # Use cached expression if available
+        tree_id = id(state.mechanism_tree)
+        if tree_id in self.expression_cache:
+            mechanism_expr = self.expression_cache[tree_id]
+        else:
+            mechanism_expr = state.mechanism_tree.to_expression()
+            # Cache it (limit cache size)
+            if len(self.expression_cache) < 100:
+                self.expression_cache[tree_id] = mechanism_expr
         
         try:
             safe_dict = {
