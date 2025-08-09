@@ -50,11 +50,25 @@ class EvaluationMetrics:
         if not true_params:
             return 0.0
         
+        # Strip node prefixes from estimated params for comparison
+        stripped_estimated = {}
+        for key, value in estimated_params.items():
+            if '_' in key:
+                parts = key.split('_')
+                if parts[0] == 'node' and len(parts) > 2 and parts[1].isdigit():
+                    # This is a node-prefixed parameter (e.g., node_2_v_max)
+                    base_name = '_'.join(parts[2:])
+                    stripped_estimated[base_name] = value
+                else:
+                    stripped_estimated[key] = value
+            else:
+                stripped_estimated[key] = value
+        
         errors = []
         for param_name in true_params:
-            if param_name in estimated_params:
+            if param_name in stripped_estimated:
                 true_val = true_params[param_name]
-                est_val = estimated_params[param_name]
+                est_val = stripped_estimated[param_name]
                 
                 if true_val != 0:
                     relative_error = abs(est_val - true_val) / abs(true_val)
