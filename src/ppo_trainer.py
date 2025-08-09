@@ -62,13 +62,17 @@ class PPOTrainer:
         self.policy_network.to(self.device)
         self.value_network.to(self.device)
         
+        # Ensure learning rates are floats (handle string scientific notation)
+        policy_lr = float(config['policy_network']['learning_rate'])
+        value_lr = float(config['value_network']['learning_rate'])
+        
         self.policy_optimizer = optim.Adam(
             self.policy_network.parameters(),
-            lr=config['policy_network']['learning_rate']
+            lr=policy_lr
         )
         self.value_optimizer = optim.Adam(
             self.value_network.parameters(),
-            lr=config['value_network']['learning_rate']
+            lr=value_lr
         )
         
         self.clip_epsilon = config['ppo']['clip_epsilon']

@@ -113,14 +113,14 @@ policy_network:
   num_gnn_layers: 3
   num_attention_heads: 8
   dropout_rate: 0.1
-  learning_rate: 3e-4
+  learning_rate: 0.0003  # 3e-4
   activation: leaky_relu
   
 # Value Network Configuration  
 value_network:
   hidden_dim: 256
   num_gnn_layers: 3
-  learning_rate: 1e-3
+  learning_rate: 0.001  # 1e-3
   
 # PPO Configuration
 ppo:
