@@ -175,15 +175,16 @@ class StateEncoder(nn.Module):
             graph_data.x,
             graph_data.edge_index,
             batch=batch
-        )
+        )  # shape: [1, 2*hidden_dim]
         
         state_info = torch.tensor([
             state.mechanism_tree.get_complexity() / 100.0,
             state.step_count / 100.0,
             float(state.is_terminal)
         ], dtype=torch.float32, device=device)
+        state_info = state_info.unsqueeze(0)  # shape: [1, 3]
         
-        combined_features = torch.cat([graph_embedding, state_info])
+        combined_features = torch.cat([graph_embedding, state_info], dim=-1)
         
         state_representation = self.state_projector(combined_features)
         
