@@ -184,7 +184,8 @@ class BiologicalMDP:
         for param_config in ['v_max', 'k_m', 'k_i', 'hill_coefficient', 'k_on', 'k_off']:
             if param_config in self.config['biological_params']:
                 bounds = self.config['biological_params'][param_config]
-                parameter_constraints[param_config] = (bounds['min'], bounds['max'])
+                # Ensure bounds are floats
+                parameter_constraints[param_config] = (float(bounds['min']), float(bounds['max']))
         
         return MDPState(
             mechanism_tree=root_node,
@@ -259,6 +260,10 @@ class BiologicalMDP:
         for param_name, current_value in all_params.items():
             if param_name in state.parameter_constraints:
                 min_val, max_val = state.parameter_constraints[param_name]
+                # Ensure values are floats for comparison
+                min_val = float(min_val)
+                max_val = float(max_val)
+                current_value = float(current_value)
                 
                 for delta_factor in [0.5, 0.8, 1.2, 2.0]:
                     new_value = current_value * delta_factor

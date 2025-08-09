@@ -157,18 +157,18 @@ optimization:
 # Biological Parameter Ranges
 biological_params:
   v_max:
-    min: 1e-3
-    max: 1e3
+    min: 0.001  # 1e-3
+    max: 1000.0  # 1e3
     prior_mean: 1.0
     prior_std: 0.5
   k_m:
-    min: 1e-6
-    max: 1e3
+    min: 0.000001  # 1e-6
+    max: 1000.0  # 1e3
     prior_mean: 0.1
     prior_std: 0.3
   k_i:
-    min: 1e-6
-    max: 1e3
+    min: 0.000001  # 1e-6
+    max: 1000.0  # 1e3
     prior_mean: 0.1
     prior_std: 0.3
   hill_coefficient:
@@ -177,13 +177,13 @@ biological_params:
     prior_mean: 1.5
     prior_std: 0.5
   k_on:
-    min: 1e3
-    max: 1e9
-    prior_mean: 1e6
-    prior_std: 1e5
+    min: 1000.0  # 1e3
+    max: 1000000000.0  # 1e9
+    prior_mean: 1000000.0  # 1e6
+    prior_std: 100000.0  # 1e5
   k_off:
-    min: 1e-3
-    max: 1e3
+    min: 0.001  # 1e-3
+    max: 1000.0  # 1e3
     prior_mean: 1.0
     prior_std: 0.5
     
