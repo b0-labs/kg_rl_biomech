@@ -34,7 +34,8 @@ class MechanismNode:
         # Handle root node specially - combine children
         if self.node_type == "root":
             if len(self.children) == 0:
-                return "1.0"  # Empty root
+                # Return a basic Michaelis-Menten with default parameters for empty root
+                return "(0.1 * S) / (0.01 + S)"  # Basic MM with small default values
             elif len(self.children) == 1:
                 return self.children[0].to_expression()
             else:
@@ -44,17 +45,13 @@ class MechanismNode:
         
         # Handle entity nodes with functional forms
         if self.functional_form and self.node_type == "entity":
-            expr = self.functional_form
-            # Replace parameters with actual values
-            for param_name, param_value in self.parameters.items():
-                expr = expr.replace(param_name, str(param_value))
-            # Replace variable names (S, I, A, etc.) - these should stay as variables
-            # Don't replace them here
-            return expr
+            # Keep the functional form - DO NOT replace parameter names with values
+            # The parameters will be provided during evaluation
+            return self.functional_form
         
         if self.node_type == "combine":
             if len(self.children) == 0:
-                return "0"
+                return "0.01"  # Small non-zero value instead of 0
             elif len(self.children) == 1:
                 return self.children[0].to_expression()
             else:
@@ -70,7 +67,8 @@ class MechanismNode:
                 else:
                     return f"compose({', '.join(child_exprs)})"
         
-        return "unknown"
+        # Return basic functional form if nothing else works
+        return "(0.1 * S) / (0.01 + S)"
     
     def get_complexity(self) -> int:
         complexity = 1

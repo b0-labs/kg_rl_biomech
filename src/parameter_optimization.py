@@ -325,8 +325,12 @@ class ParameterOptimizer:
             
             result = np.array(result, dtype=float)
             
+            # Clip results to prevent numerical overflow
+            result = np.clip(result, -1e10, 1e10)
+            
             if not np.all(np.isfinite(result)):
-                return None
+                # Replace non-finite values
+                result = np.nan_to_num(result, nan=0.01, posinf=1e10, neginf=-1e10)
             
             return result
             

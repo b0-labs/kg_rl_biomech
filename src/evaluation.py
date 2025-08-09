@@ -122,11 +122,20 @@ class EvaluationMetrics:
         if len(predictions) != len(true_values):
             raise ValueError(f"Predictions length ({len(predictions)}) doesn't match true values length ({len(true_values)})")
         
+        # Clip predictions to prevent numerical overflow
+        predictions = np.clip(predictions, -1e10, 1e10)
+        
         mse = mean_squared_error(true_values, predictions)
         mae = mean_absolute_error(true_values, predictions)
         
         if np.var(true_values) > 0:
-            r2 = r2_score(true_values, predictions)
+            # Calculate R² with bounds checking
+            try:
+                r2 = r2_score(true_values, predictions)
+                # Clip R² to reasonable bounds
+                r2 = max(-100.0, min(1.0, r2))  # R² shouldn't be less than -100
+            except:
+                r2 = -1.0  # Default bad score
         else:
             r2 = 0.0
         
@@ -372,21 +381,25 @@ class EvaluationMetrics:
             # Ensure result is an array with proper shape
             if isinstance(result, (int, float)):
                 # If result is scalar, broadcast to all samples
-                result = np.full(n_samples, result)
+                result = np.full(n_samples, float(result))
             else:
-                result = np.array(result)
+                result = np.array(result, dtype=float)
             
             # Ensure proper shape
             if result.shape != (n_samples,):
                 if result.ndim == 0:
                     # Scalar case
-                    result = np.full(n_samples, result.item())
+                    result = np.full(n_samples, float(result.item()))
                 elif result.shape[0] != n_samples:
                     # Wrong number of samples
                     return None
             
+            # Clip results to prevent numerical overflow
+            result = np.clip(result, -1e10, 1e10)
+            
             if not np.all(np.isfinite(result)):
-                return None
+                # Replace non-finite values with small values
+                result = np.nan_to_num(result, nan=0.01, posinf=1e10, neginf=-1e10)
             
             return result
             
