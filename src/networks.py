@@ -253,36 +253,41 @@ class PolicyNetwork(nn.Module):
         action_probs = []
         
         for action in valid_actions:
+            action_type_probs = F.softmax(action_type_logits, dim=-1)[0]  # shape [4]
             if action.action_type == ActionType.ADD_ENTITY:
-                action_type_prob = F.softmax(action_type_logits, dim=-1)[0]
+                action_type_prob = action_type_probs[0]
                 
                 entity_idx = 0
                 if action.entity_id and action.entity_id in self.state_encoder.entity_to_idx:
                     entity_idx = self.state_encoder.entity_to_idx[action.entity_id] + 1
-                entity_prob = F.softmax(entity_logits, dim=-1)[entity_idx]
+                entity_probs = F.softmax(entity_logits, dim=-1)
+                entity_prob = entity_probs[0, entity_idx] if entity_idx < entity_probs.shape[-1] else entity_probs.new_tensor(1e-8)
                 
                 relation_idx = 0
                 if action.relation_type and action.relation_type in self.state_encoder.relation_to_idx:
                     relation_idx = self.state_encoder.relation_to_idx[action.relation_type] + 1
-                relation_prob = F.softmax(relation_logits, dim=-1)[relation_idx]
+                relation_probs = F.softmax(relation_logits, dim=-1)
+                relation_prob = relation_probs[0, relation_idx] if relation_idx < relation_probs.shape[-1] else relation_probs.new_tensor(1e-8)
                 
                 action_prob = action_type_prob * entity_prob * relation_prob
                 
             elif action.action_type == ActionType.MODIFY_PARAMETER:
-                action_type_prob = F.softmax(action_type_logits, dim=-1)[1]
-                param_prob = F.softmax(param_logits, dim=-1)[0]
+                action_type_prob = action_type_probs[1]
+                param_probs = F.softmax(param_logits, dim=-1)[0]  # shape [K]
+                param_prob = param_probs.mean()  # fallback scalar
                 action_prob = action_type_prob * param_prob
                 
             elif action.action_type == ActionType.COMBINE_SUBTREES:
-                action_type_prob = F.softmax(action_type_logits, dim=-1)[2]
-                combine_prob = F.softmax(combine_logits, dim=-1)[0]
+                action_type_prob = action_type_probs[2]
+                combine_probs = F.softmax(combine_logits, dim=-1)[0]  # shape [M]
+                combine_prob = combine_probs.mean()  # fallback scalar
                 action_prob = action_type_prob * combine_prob
                 
             elif action.action_type == ActionType.TERMINATE:
-                action_prob = F.softmax(action_type_logits, dim=-1)[3]
+                action_prob = action_type_probs[3]
                 
             else:
-                action_prob = torch.tensor(1e-8)
+                action_prob = torch.tensor(1e-8, device=action_type_logits.device)
             
             action_probs.append(action_prob)
         
