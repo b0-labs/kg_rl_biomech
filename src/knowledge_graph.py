@@ -94,13 +94,13 @@ class KnowledgeGraph:
         self.mathematical_constraints[RelationType.CATALYSIS] = [
             MathematicalConstraint(
                 "michaelis_menten",
-                "v_max * S / (k_m + S)",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3)}
+                "(v_max * S) / (k_m + S)",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0)}
             ),
             MathematicalConstraint(
                 "hill_equation",
-                "v_max * S^n / (k_m^n + S^n)",
-                {"v_max": (1e-3, 1e3), "k_m": (1e-6, 1e3), "n": (0.5, 4.0)}
+                "(v_max * (S ** n)) / ((k_m ** n) + (S ** n))",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "n": (0.5, 4.0)}
             ),
             MathematicalConstraint(
                 "multi_substrate",

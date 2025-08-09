@@ -31,10 +31,25 @@ class MechanismNode:
     parent: Optional['MechanismNode'] = None
     
     def to_expression(self) -> str:
-        if self.functional_form:
+        # Handle root node specially - combine children
+        if self.node_type == "root":
+            if len(self.children) == 0:
+                return "1.0"  # Empty root
+            elif len(self.children) == 1:
+                return self.children[0].to_expression()
+            else:
+                # Combine multiple children with addition by default
+                child_exprs = [child.to_expression() for child in self.children]
+                return f"({' + '.join(child_exprs)})"
+        
+        # Handle entity nodes with functional forms
+        if self.functional_form and self.node_type == "entity":
             expr = self.functional_form
+            # Replace parameters with actual values
             for param_name, param_value in self.parameters.items():
                 expr = expr.replace(param_name, str(param_value))
+            # Replace variable names (S, I, A, etc.) - these should stay as variables
+            # Don't replace them here
             return expr
         
         if self.node_type == "combine":
@@ -175,7 +190,7 @@ class BiologicalMDP:
         root_node = MechanismNode(
             node_id=self._generate_node_id(),
             node_type="root",
-            functional_form="1.0"
+            functional_form=None  # Root doesn't have its own form, it combines children
         )
         
         all_entities = set(self.knowledge_graph.entities.keys())
