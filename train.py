@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 from typing import Dict, List, Optional
+from tqdm import tqdm
 
 from src.knowledge_graph import KnowledgeGraph, BiologicalEntity, BiologicalRelationship, RelationType
 from src.mdp import BiologicalMDP
@@ -196,21 +197,36 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
     
     best_mechanism = None
     best_score = float('-inf')
+    stuck_counter = 0
+    last_best_score = float('-inf')
     
-    for episode in range(num_episodes):
+    # Create progress bar for episodes
+    pbar = tqdm(range(num_episodes), desc="Training Episodes", leave=False)
+    
+    for episode in pbar:
         episode_stats = trainer.train_episode(system.data_X, system.data_y)
         
         if episode % 10 == 0 and episode > 0:
             trainer.update_networks()
         
-        if episode % 100 == 0:
+        # More frequent logging - every 20 episodes instead of 100
+        if episode % 20 == 0:
             logger.info(f"Episode {episode}: Reward={episode_stats['episode_reward']:.3f}, "
-                       f"Best Score={episode_stats['best_score']:.3f}")
+                       f"Best Score={episode_stats['best_score']:.3f}, "
+                       f"Steps={episode_stats.get('num_steps', 0)}")
+        
+        # Update progress bar with current stats
+        pbar.set_postfix({
+            'reward': f"{episode_stats['episode_reward']:.3f}",
+            'best': f"{episode_stats['best_score']:.3f}",
+            'stuck': stuck_counter
+        })
         
         current_best = trainer.get_best_mechanism()
         if current_best and episode_stats['best_score'] > best_score:
             best_score = episode_stats['best_score']
             best_mechanism = current_best
+            stuck_counter = 0  # Reset stuck counter on improvement
             
             optimized_params, loss = optimizer.optimize_parameters(
                 best_mechanism, system.data_X, system.data_y
@@ -218,12 +234,27 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
             
             # Properly update parameters in the mechanism tree
             _update_mechanism_parameters(best_mechanism.mechanism_tree, optimized_params)
+        else:
+            # Check if we're stuck
+            if abs(episode_stats['best_score'] - last_best_score) < 1e-6:
+                stuck_counter += 1
+            else:
+                stuck_counter = 0
+            
+        last_best_score = episode_stats['best_score']
+        
+        # Early stopping if stuck for too long
+        if stuck_counter > 100:
+            logger.warning(f"Training stuck for {stuck_counter} episodes, early stopping")
+            break
         
         # Check convergence
         trainer.update_performance_history(episode_stats['episode_reward'])
         if episode % 10 == 0 and trainer.check_convergence():
             logger.info(f"Converged at episode {episode}")
             break
+    
+    pbar.close()
     
     if best_mechanism:
         predictions = evaluator._evaluate_mechanism_predictions(best_mechanism, system.data_X)
@@ -491,7 +522,8 @@ def main():
     all_results = []
     discovered_mechanisms = []
     
-    for i, system in enumerate(synthetic_systems):
+    # Add overall progress bar for systems
+    for i, system in enumerate(tqdm(synthetic_systems, desc="Training Systems")):
         logger.info(f"\n{'='*40}")
         logger.info(f"Training on System {i+1}/{len(synthetic_systems)}")
         logger.info(f"{'='*40}")

@@ -157,8 +157,11 @@ class PPOTrainer:
         episode_stats = {
             'episode_reward': episode_reward,
             'episode_length': step_count,
+            'num_steps': step_count,
             'epsilon': self.epsilon,
-            'best_score': self.best_score
+            'best_score': self.best_score,
+            'final_complexity': state.mechanism_tree.get_complexity() if state.mechanism_tree else 0,
+            'is_terminal': self.mdp.is_terminal_state(state)
         }
         
         self.training_stats['episode_rewards'].append(episode_reward)

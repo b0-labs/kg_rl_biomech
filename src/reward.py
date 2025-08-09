@@ -37,12 +37,18 @@ class RewardFunction:
         
         violation_penalty = self._compute_violation_penalty(next_state)
         
+        # Add exploration bonus for early steps to encourage building
+        exploration_bonus = 0.0
+        if state.mechanism_tree.get_complexity() < 3:
+            exploration_bonus = 0.2  # Small bonus for taking actions early
+        
         reward = (
             self.lambda_likelihood * likelihood_improvement +
             self.lambda_plausibility * plausibility_score +
             self.lambda_interpretability * interpretability_score -
             self.lambda_action_penalty * action_penalty -
-            self.lambda_violation_penalty * violation_penalty
+            self.lambda_violation_penalty * violation_penalty +
+            exploration_bonus
         )
         
         if next_state.is_terminal:
@@ -62,13 +68,24 @@ class RewardFunction:
         
         improvement = next_likelihood - current_likelihood
         
-        normalized_improvement = np.tanh(improvement / 10.0)
+        # Add a small bonus for increasing complexity early on
+        complexity_diff = next_state.mechanism_tree.get_complexity() - state.mechanism_tree.get_complexity()
+        if complexity_diff > 0 and state.mechanism_tree.get_complexity() < 3:
+            improvement += 0.5 * complexity_diff
+        
+        # Use a softer normalization to preserve more signal
+        normalized_improvement = np.tanh(improvement / 5.0)  # Changed from 10.0 to 5.0
         
         return normalized_improvement
     
     def _evaluate_likelihood(self, state: MDPState) -> float:
-        if state.mechanism_tree.get_complexity() <= 1:
-            return -1000.0
+        complexity = state.mechanism_tree.get_complexity()
+        
+        # For very simple mechanisms, return a small negative value that scales with complexity
+        # This encourages building more complex mechanisms without harsh penalties
+        if complexity <= 1:
+            # Return a small negative value that improves as complexity approaches 1
+            return -10.0 * (2.0 - complexity)  # -20 for complexity=0, -10 for complexity=1
         
         try:
             mechanism_expr = state.mechanism_tree.to_expression()
@@ -76,15 +93,20 @@ class RewardFunction:
             predictions = self._evaluate_mechanism(mechanism_expr, self.data['X'])
             
             if predictions is None:
-                return -1000.0
+                # Return a penalty that scales with complexity (less harsh for simple mechanisms)
+                return -50.0 / max(1, complexity)
             
             residuals = self.data['y'] - predictions
             neg_log_likelihood = 0.5 * np.sum(residuals ** 2) / len(residuals)
             
-            return -neg_log_likelihood
+            # Add a small complexity bonus to encourage exploration
+            complexity_bonus = 0.1 * np.log(complexity + 1)
+            
+            return -neg_log_likelihood + complexity_bonus
             
         except Exception:
-            return -1000.0
+            # Return a penalty that scales with complexity
+            return -50.0 / max(1, complexity)
     
     def _evaluate_mechanism(self, expression: str, X: np.ndarray) -> Optional[np.ndarray]:
         try:
