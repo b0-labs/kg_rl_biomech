@@ -77,15 +77,20 @@ def create_knowledge_graph(config: Dict, logger: logging.Logger, sources: Option
             return kg
         else:
             logger.warning(f"Cache file not found at {cache_file}, building from scratch...")
-            # Try to build using kg_builder.py
+            # Try to build using kg_builder_enhanced.py (or fallback to kg_builder.py)
             try:
                 import sys
                 sys.path.append('.')
-                from kg_builder import ComprehensiveKGBuilder
-                
-                logger.info("Building comprehensive knowledge graph using kg_builder.py...")
-                builder = ComprehensiveKGBuilder(config)
-                kg = builder.build_complete_kg()
+                try:
+                    from kg_builder_enhanced import EnhancedKGBuilder
+                    logger.info("Building comprehensive knowledge graph using kg_builder_enhanced.py...")
+                    builder = EnhancedKGBuilder(config)
+                    kg = builder.build_complete_graph()
+                except ImportError:
+                    from kg_builder import ComprehensiveKGBuilder
+                    logger.info("Building comprehensive knowledge graph using kg_builder.py...")
+                    builder = ComprehensiveKGBuilder(config)
+                    kg = builder.build_complete_kg()
                 
                 # Save to cache for future use
                 os.makedirs(os.path.dirname(cache_file), exist_ok=True)
@@ -386,10 +391,16 @@ def main():
         try:
             import sys
             sys.path.append('.')
-            from kg_builder import ComprehensiveKGBuilder
-            
-            builder = ComprehensiveKGBuilder(config)
-            kg = builder.build_complete_kg()
+            try:
+                from kg_builder_enhanced import EnhancedKGBuilder
+                logger.info("Using enhanced KG builder with comprehensive relationships...")
+                builder = EnhancedKGBuilder(config)
+                kg = builder.build_complete_graph()
+            except ImportError:
+                from kg_builder import ComprehensiveKGBuilder
+                logger.info("Using standard KG builder...")
+                builder = ComprehensiveKGBuilder(config)
+                kg = builder.build_complete_kg()
             
             cache_path = args.kg_cache_path or config.get('kg_builder', {}).get('cache_path', './kg_cache/comprehensive_kg.json')
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
