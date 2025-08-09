@@ -271,12 +271,19 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
     pbar.close()
     
     if best_mechanism:
+        # Always optimize parameters on the final best mechanism
+        final_optimized_params, _ = optimizer.optimize_parameters(
+            best_mechanism, system.data_X, system.data_y
+        )
+        # Update the mechanism tree with optimized parameters
+        _update_mechanism_parameters(best_mechanism.mechanism_tree, final_optimized_params)
+        
         predictions = evaluator._evaluate_mechanism_predictions(best_mechanism, system.data_X)
         if predictions is not None:
             try:
                 errors = evaluator.evaluate_prediction_error(predictions, system.data_y)
                 param_recovery = evaluator.evaluate_parameter_recovery(
-                    optimized_params if 'optimized_params' in locals() else {},
+                    final_optimized_params,
                     system.true_parameters
                 )
                 
