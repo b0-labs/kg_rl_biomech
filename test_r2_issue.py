@@ -57,7 +57,7 @@ def test_mechanism_evaluation():
     mdp = BiologicalMDP(kg, config)
     
     # Get initial state
-    initial_state = mdp.initialize_state()
+    initial_state = mdp.create_initial_state()
     
     # Add an entity to create a simple mechanism
     from src.mdp import Action, ActionType
