@@ -50,9 +50,17 @@ def analyze_training_step(trainer, system, step_num):
             # Show the mechanism expression
             try:
                 expr = next_state.mechanism_tree.to_expression()
-                print(f"Expression: {expr[:100]}...")  # First 100 chars
-            except:
-                print("Expression: <failed to generate>")
+                print(f"Expression: {expr}")  # Show full expression
+                print(f"  Root type: {next_state.mechanism_tree.node_type}")
+                print(f"  Root children: {len(next_state.mechanism_tree.children)}")
+                if next_state.mechanism_tree.children:
+                    child = next_state.mechanism_tree.children[0]
+                    print(f"  Child type: {child.node_type}")
+                    print(f"  Child entity: {child.entity_id}")
+                    print(f"  Child form: {child.functional_form}")
+                    print(f"  Child params: {child.parameters}")
+            except Exception as e:
+                print(f"Expression: <failed to generate: {e}>")
     
     return state
 
@@ -119,9 +127,11 @@ def main():
         print(f"\nBest mechanism complexity: {best.mechanism_tree.get_complexity()}")
         try:
             expr = best.mechanism_tree.to_expression()
-            print(f"Best expression: {expr[:200]}...")
-        except:
-            print("Best expression: <failed to generate>")
+            print(f"Best expression: {expr}")
+            print(f"Best root type: {best.mechanism_tree.node_type}")
+            print(f"Best root children: {len(best.mechanism_tree.children)}")
+        except Exception as e:
+            print(f"Best expression: <failed to generate: {e}>")
 
 if __name__ == "__main__":
     main()
