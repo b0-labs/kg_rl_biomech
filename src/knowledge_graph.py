@@ -101,6 +101,16 @@ class KnowledgeGraph:
                 "substrate_consumption",
                 "k_cat * E * S / (k_m + S)",
                 {"k_cat": (0.01, 1000.0), "E": (0.0001, 10.0), "k_m": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "multi_substrate_binding",
+                "(v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "multi_substrate_complex",
+                "(v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1) * (1.0 + X2 / k_p))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0), "k_p": (0.000001, 1000.0)}
             )
         ]
         
@@ -115,6 +125,16 @@ class KnowledgeGraph:
                 "product_inhibition",
                 "(v_max * S) / ((k_m + S) * (1.0 + P / k_p))",
                 {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_p": (0.001, 100.0)}
+            ),
+            MathematicalConstraint(
+                "multi_substrate_product_formation",
+                "(v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "multi_substrate_with_product_inhibition",
+                "(v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1) * (1.0 + X2 / k_p))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0), "k_p": (0.001, 100.0)}
             )
         ]
         
@@ -195,9 +215,30 @@ class KnowledgeGraph:
                 {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0)}
             ),
             MathematicalConstraint(
+                "multi_substrate_ordered",
+                "(v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "multi_substrate_product_inhibition",
+                "(v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1) * (1.0 + X2 / k_p))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0), "k_p": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "multi_substrate_three_way",
+                "(v_max * X0 * X1 * X2) / ((k_m1 + X0) * (k_m2 + X1) * (k_m3 + X2))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0), "k_m3": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
                 "product_inhibition",
                 "((v_max * S) / (k_m + S)) * (1.0 / (1.0 + P / k_p))",
                 {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_p": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "complex_multi_substrate_allosteric",
+                "((v_max * X0 * X1) / ((k_m1 + X0) * (k_m2 + X1))) * ((1.0 + alpha * X2 / k_a) / (1.0 + X2 / k_a))",
+                {"v_max": (0.001, 1000.0), "k_m1": (0.000001, 1000.0), "k_m2": (0.000001, 1000.0), 
+                 "alpha": (0.1, 10.0), "k_a": (0.000001, 1000.0)}
             )
         ]
         

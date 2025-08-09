@@ -116,6 +116,9 @@ class PPOTrainer:
     def train_episode(self, data_X: np.ndarray, data_y: np.ndarray) -> Dict:
         self.reward_function.set_data(data_X, data_y)
         
+        # Update MDP with current data dimensions
+        self.mdp.input_dimensions = data_X.shape[1]
+        
         state = self.mdp.create_initial_state()
         trajectory = []
         episode_reward = 0
@@ -351,13 +354,19 @@ class PPOTrainer:
                 'max': np.maximum, 'min': np.minimum
             }
             
+            # Map all input dimensions properly
             for i in range(data_X.shape[1]):
                 safe_dict[f'X{i}'] = data_X[:, i]
-                safe_dict['S'] = data_X[:, 0]
-                if data_X.shape[1] > 1:
-                    safe_dict['I'] = data_X[:, 1]
-                if data_X.shape[1] > 2:
-                    safe_dict['A'] = data_X[:, 2]
+            
+            # Also provide named mappings for compatibility
+            safe_dict['S'] = data_X[:, 0]
+            if data_X.shape[1] > 1:
+                safe_dict['S1'] = data_X[:, 0]
+                safe_dict['S2'] = data_X[:, 1]
+                safe_dict['I'] = data_X[:, 1]
+            if data_X.shape[1] > 2:
+                safe_dict['P'] = data_X[:, 2]
+                safe_dict['A'] = data_X[:, 2]
             
             all_params = self._get_all_parameters(state.mechanism_tree)
             safe_dict.update(all_params)

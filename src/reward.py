@@ -37,6 +37,9 @@ class RewardFunction:
         
         violation_penalty = self._compute_violation_penalty(next_state)
         
+        # Add dimension usage bonus for multi-dimensional data
+        dimension_bonus = self._compute_dimension_usage_bonus(next_state)
+        
         # Add exploration bonus for early steps to encourage building
         # But keep it smaller so data fitting is more important
         exploration_bonus = 0.0
@@ -51,6 +54,7 @@ class RewardFunction:
             self.lambda_interpretability * interpretability_score -
             self.lambda_action_penalty * action_penalty -
             self.lambda_violation_penalty * violation_penalty +
+            dimension_bonus +
             exploration_bonus
         )
         
@@ -129,13 +133,21 @@ class RewardFunction:
             if X.ndim == 1:
                 X = X.reshape(-1, 1)
             
+            # Map all input dimensions properly
             for i in range(X.shape[1]):
                 safe_dict[f'X{i}'] = X[:, i]
-                safe_dict[f'S'] = X[:, 0]
-                safe_dict[f'I'] = X[:, 1] if X.shape[1] > 1 else np.zeros_like(X[:, 0])
-                safe_dict[f'A'] = X[:, 2] if X.shape[1] > 2 else np.zeros_like(X[:, 0])
-                safe_dict[f'D'] = X[:, 0]
-                safe_dict[f'R'] = X[:, 1] if X.shape[1] > 1 else np.ones_like(X[:, 0])
+            
+            # Also provide named mappings for compatibility
+            safe_dict['S'] = X[:, 0]
+            if X.shape[1] > 1:
+                safe_dict['S1'] = X[:, 0]
+                safe_dict['S2'] = X[:, 1]
+                safe_dict['I'] = X[:, 1]
+                safe_dict['D'] = X[:, 0]
+                safe_dict['R'] = X[:, 1]
+            if X.shape[1] > 2:
+                safe_dict['P'] = X[:, 2]
+                safe_dict['A'] = X[:, 2]
             
             safe_dict.update({
                 'v_max': 1.0, 'k_m': 0.1, 'k_i': 0.1, 'k_a': 0.1,
@@ -228,6 +240,44 @@ class RewardFunction:
         
         return max_child_depth
     
+    def _compute_dimension_usage_bonus(self, state: MDPState) -> float:
+        """Compute bonus for using all available input dimensions"""
+        if self.data is None or self.data['X'].shape[1] <= 1:
+            return 0.0
+        
+        # Get mechanism expression
+        try:
+            mechanism_expr = state.mechanism_tree.to_expression()
+        except:
+            return 0.0
+        
+        # Count how many dimensions are used
+        num_dimensions = self.data['X'].shape[1]
+        dimensions_used = 0
+        
+        # Check for X0, X1, X2... patterns
+        for i in range(num_dimensions):
+            if f'X{i}' in mechanism_expr:
+                dimensions_used += 1
+        
+        # Also check for S1, S2, P patterns for multi-substrate
+        if num_dimensions > 1:
+            if 'S1' in mechanism_expr or 'S2' in mechanism_expr:
+                dimensions_used = max(dimensions_used, 2)
+            if 'P' in mechanism_expr:
+                dimensions_used = max(dimensions_used, 3)
+        
+        # Calculate bonus based on percentage of dimensions used
+        usage_ratio = dimensions_used / num_dimensions
+        
+        # Strong bonus for using all dimensions
+        if usage_ratio >= 1.0:
+            return 1.0
+        elif usage_ratio >= 0.67:  # Using 2/3 or more
+            return 0.5 * usage_ratio
+        else:
+            return 0.1 * usage_ratio
+    
     def _compute_action_penalty(self, action: Action) -> float:
         if action.action_type == ActionType.TERMINATE:
             # Penalize early termination
@@ -293,6 +343,11 @@ class RewardFunction:
             likelihood = self._evaluate_likelihood(state)
             if likelihood > -10.0:
                 bonus += 3.0
+            
+            # Extra bonus for using all dimensions
+            dimension_usage = self._compute_dimension_usage_bonus(state)
+            if dimension_usage >= 0.9:  # Using most/all dimensions
+                bonus += 2.0
         
         return bonus
 

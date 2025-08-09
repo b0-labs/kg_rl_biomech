@@ -180,12 +180,13 @@ class Action:
     subtree_ids: Optional[Tuple[str, str]] = None
 
 class BiologicalMDP:
-    def __init__(self, knowledge_graph: KnowledgeGraph, config: Dict):
+    def __init__(self, knowledge_graph: KnowledgeGraph, config: Dict, input_dimensions: int = 1):
         self.knowledge_graph = knowledge_graph
         self.config = config
         self.max_steps = config['mdp']['max_steps_per_episode']
         self.discount_factor = config['mdp']['discount_factor']
         self.node_counter = 0
+        self.input_dimensions = input_dimensions  # Track number of input dimensions
         
     def create_initial_state(self) -> MDPState:
         self.node_counter = 0
@@ -360,7 +361,21 @@ class BiologicalMDP:
         constraints = self.knowledge_graph.get_constraints_for_relation(action.relation_type)
         
         if constraints:
-            constraint = constraints[0]
+            # Select appropriate constraint based on input dimensions
+            selected_constraint = None
+            
+            # Prioritize multi-substrate forms for multi-dimensional data
+            if self.input_dimensions > 1:
+                # Look for multi-substrate forms first
+                multi_substrate_keywords = ['multi_substrate', 'X0', 'X1', 'X2', 'S1', 'S2']
+                for constraint in constraints:
+                    if any(keyword in constraint.functional_form for keyword in multi_substrate_keywords):
+                        selected_constraint = constraint
+                        break
+            
+            # Fallback to first constraint if no multi-substrate found or single dimension
+            if selected_constraint is None:
+                selected_constraint = constraints[0]
             
             # Use log-scale midpoint for parameters that vary over orders of magnitude
             def get_initial_value(param_name, bounds):
@@ -376,12 +391,12 @@ class BiologicalMDP:
                 node_type="entity",
                 entity_id=action.entity_id,
                 relation_type=action.relation_type,
-                functional_form=constraint.functional_form,
+                functional_form=selected_constraint.functional_form,
                 parameters={param: get_initial_value(param, bounds)
-                          for param, bounds in constraint.parameter_bounds.items()}
+                          for param, bounds in selected_constraint.parameter_bounds.items()}
             )
             
-            for param, bounds in constraint.parameter_bounds.items():
+            for param, bounds in selected_constraint.parameter_bounds.items():
                 state.parameter_constraints[f"{new_node.node_id}_{param}"] = bounds
             
             if action.position == "root":
