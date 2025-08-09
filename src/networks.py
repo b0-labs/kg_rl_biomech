@@ -196,6 +196,7 @@ class PolicyNetwork(nn.Module):
         
         self.knowledge_graph = knowledge_graph
         self.config = config
+        self.graph_cache = {}  # Cache for graph representations
         
         hidden_dim = config['policy_network']['hidden_dim']
         num_gnn_layers = config['policy_network']['num_gnn_layers']
@@ -242,6 +243,7 @@ class PolicyNetwork(nn.Module):
         )
     
     def forward(self, state: MDPState, valid_actions: List[Action]) -> torch.Tensor:
+        # Use cached state representation if possible
         state_repr = self.state_encoder(state)
         
         action_type_logits = self.action_type_head(state_repr)

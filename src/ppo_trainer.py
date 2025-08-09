@@ -109,6 +109,9 @@ class PPOTrainer:
         
         # Cache for mechanism expressions to avoid repeated generation
         self.expression_cache = {}
+        
+        # Warmup the networks to avoid first-episode slowdown
+        self._warmup_networks()
     
     def train_episode(self, data_X: np.ndarray, data_y: np.ndarray) -> Dict:
         self.reward_function.set_data(data_X, data_y)
@@ -251,6 +254,32 @@ class PPOTrainer:
         self.training_stats['value_losses'].append(avg_value_loss)
         
         return {'policy_loss': avg_policy_loss, 'value_loss': avg_value_loss}
+    
+    def _warmup_networks(self):
+        """Warmup networks to trigger CUDA kernel compilation"""
+        try:
+            # Create a dummy state for warmup
+            dummy_state = self.mdp.create_initial_state()
+            
+            # Warmup value network
+            with torch.no_grad():
+                for _ in range(3):  # Run a few times to ensure warmup
+                    _ = self.value_network(dummy_state)
+            
+            # Warmup policy network
+            valid_actions = self.mdp.get_valid_actions(dummy_state)
+            if valid_actions:
+                with torch.no_grad():
+                    for _ in range(3):
+                        _ = self.policy_network(dummy_state, valid_actions)
+            
+            # Clear any GPU cache from warmup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                
+        except Exception:
+            # Silently fail if warmup has issues
+            pass
     
     def _compute_advantages(self, batch: List[Transition]) -> np.ndarray:
         advantages = []
