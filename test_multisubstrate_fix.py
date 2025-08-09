@@ -93,7 +93,7 @@ def test_multi_substrate_discovery():
     """Test if the agent can discover multi-substrate mechanisms"""
     
     # Load config
-    with open('config/config.yaml', 'r') as f:
+    with open('config.yml', 'r') as f:
         config = yaml.safe_load(f)
     
     # Generate multi-substrate test data
