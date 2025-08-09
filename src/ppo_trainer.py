@@ -1,0 +1,383 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+from collections import deque
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass
+import copy
+
+from .mdp import BiologicalMDP, MDPState, Action
+from .networks import PolicyNetwork, ValueNetwork
+from .reward import RewardFunction, CumulativeRewardTracker
+from .knowledge_graph import KnowledgeGraph
+
+@dataclass
+class Transition:
+    state: MDPState
+    action: Action
+    reward: float
+    next_state: MDPState
+    done: bool
+    log_prob: float
+    value: float
+
+class ReplayBuffer:
+    def __init__(self, capacity: int):
+        self.buffer = deque(maxlen=capacity)
+    
+    def add(self, transition: Transition):
+        self.buffer.append(transition)
+    
+    def add_trajectory(self, trajectory: List[Transition]):
+        for transition in trajectory:
+            self.add(transition)
+    
+    def sample(self, batch_size: int) -> List[Transition]:
+        if len(self.buffer) < batch_size:
+            return list(self.buffer)
+        
+        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        return [self.buffer[i] for i in indices]
+    
+    def clear(self):
+        self.buffer.clear()
+    
+    def __len__(self):
+        return len(self.buffer)
+
+class PPOTrainer:
+    def __init__(self, mdp: BiologicalMDP, policy_network: PolicyNetwork, 
+                 value_network: ValueNetwork, reward_function: RewardFunction, 
+                 config: Dict):
+        
+        self.mdp = mdp
+        self.policy_network = policy_network
+        self.value_network = value_network
+        self.reward_function = reward_function
+        self.config = config
+        self.knowledge_graph = mdp.knowledge_graph  # Get KG reference from MDP
+        
+        self.device = torch.device(config['compute']['device'] if torch.cuda.is_available() else 'cpu')
+        self.policy_network.to(self.device)
+        self.value_network.to(self.device)
+        
+        self.policy_optimizer = optim.Adam(
+            self.policy_network.parameters(),
+            lr=config['policy_network']['learning_rate']
+        )
+        self.value_optimizer = optim.Adam(
+            self.value_network.parameters(),
+            lr=config['value_network']['learning_rate']
+        )
+        
+        self.clip_epsilon = config['ppo']['clip_epsilon']
+        self.lambda_gae = config['ppo']['lambda_gae']
+        self.gamma = config['mdp']['discount_factor']
+        self.num_updates = config['ppo']['num_updates_per_batch']
+        self.batch_size = config['ppo']['batch_size']
+        
+        buffer_capacity = config['ppo']['replay_buffer_capacity']
+        self.replay_buffer = ReplayBuffer(buffer_capacity)
+        
+        self.epsilon = config['exploration']['epsilon_init']
+        self.epsilon_min = config['exploration']['epsilon_min']
+        self.epsilon_decay = config['exploration']['epsilon_decay']
+        
+        self.reward_tracker = CumulativeRewardTracker()
+        
+        self.best_mechanism = None
+        self.best_score = float('-inf')
+        
+        self.training_stats = {
+            'episode_rewards': [],
+            'episode_lengths': [],
+            'policy_losses': [],
+            'value_losses': [],
+            'best_scores': []
+        }
+        
+        # Convergence tracking
+        self.convergence_window = 100
+        self.convergence_threshold = config['mdp'].get('convergence_threshold', 1e-4)
+        self.performance_history = []
+    
+    def train_episode(self, data_X: np.ndarray, data_y: np.ndarray) -> Dict:
+        self.reward_function.set_data(data_X, data_y)
+        
+        state = self.mdp.create_initial_state()
+        trajectory = []
+        episode_reward = 0
+        step_count = 0
+        
+        while not self.mdp.is_terminal_state(state) and step_count < self.config['mdp']['max_steps_per_episode']:
+            valid_actions = self.mdp.get_valid_actions(state)
+            
+            if not valid_actions:
+                break
+            
+            with torch.no_grad():
+                value = self.value_network(state).item()
+            
+            action, log_prob = self.policy_network.get_action(state, valid_actions, self.epsilon)
+            
+            next_state = self.mdp.transition(state, action)
+            
+            reward = self.reward_function.compute_reward(state, action, next_state)
+            
+            transition = Transition(
+                state=state,
+                action=action,
+                reward=reward,
+                next_state=next_state,
+                done=self.mdp.is_terminal_state(next_state),
+                log_prob=log_prob.item(),
+                value=value
+            )
+            
+            trajectory.append(transition)
+            episode_reward += reward
+            
+            state = next_state
+            step_count += 1
+        
+        self.replay_buffer.add_trajectory(trajectory)
+        
+        self.reward_tracker.add_reward(episode_reward)
+        self.reward_tracker.end_episode()
+        
+        if self.mdp.is_terminal_state(state) and state.mechanism_tree.get_complexity() > 1:
+            score = self._evaluate_mechanism(state, data_X, data_y)
+            if score > self.best_score:
+                self.best_score = score
+                self.best_mechanism = copy.deepcopy(state)
+        
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+        
+        episode_stats = {
+            'episode_reward': episode_reward,
+            'episode_length': step_count,
+            'epsilon': self.epsilon,
+            'best_score': self.best_score
+        }
+        
+        self.training_stats['episode_rewards'].append(episode_reward)
+        self.training_stats['episode_lengths'].append(step_count)
+        self.training_stats['best_scores'].append(self.best_score)
+        
+        return episode_stats
+    
+    def update_networks(self):
+        if len(self.replay_buffer) < self.batch_size:
+            return {'policy_loss': 0.0, 'value_loss': 0.0}
+        
+        batch = self.replay_buffer.sample(self.batch_size)
+        
+        advantages = self._compute_advantages(batch)
+        returns = self._compute_returns(batch)
+        
+        old_log_probs = torch.tensor([t.log_prob for t in batch], dtype=torch.float32, device=self.device)
+        old_values = torch.tensor([t.value for t in batch], dtype=torch.float32, device=self.device)
+        
+        total_policy_loss = 0.0
+        total_value_loss = 0.0
+        
+        for _ in range(self.num_updates):
+            current_log_probs = []
+            current_values = []
+            
+            for transition in batch:
+                valid_actions = self.mdp.get_valid_actions(transition.state)
+                action_idx = valid_actions.index(transition.action) if transition.action in valid_actions else 0
+                
+                action_probs = self.policy_network(transition.state, valid_actions)
+                log_probs = torch.log(action_probs + 1e-8)
+                current_log_probs.append(log_probs[action_idx])
+                
+                value = self.value_network(transition.state)
+                current_values.append(value)
+            
+            current_log_probs = torch.stack(current_log_probs)
+            current_values = torch.stack(current_values)
+            
+            ratio = torch.exp(current_log_probs - old_log_probs)
+            
+            advantages_tensor = torch.tensor(advantages, dtype=torch.float32, device=self.device)
+            
+            surr1 = ratio * advantages_tensor
+            surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * advantages_tensor
+            
+            policy_loss = -torch.min(surr1, surr2).mean()
+            
+            returns_tensor = torch.tensor(returns, dtype=torch.float32, device=self.device)
+            value_loss = nn.MSELoss()(current_values, returns_tensor)
+            
+            self.policy_optimizer.zero_grad()
+            policy_loss.backward(retain_graph=True)
+            torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), 0.5)
+            self.policy_optimizer.step()
+            
+            self.value_optimizer.zero_grad()
+            value_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), 0.5)
+            self.value_optimizer.step()
+            
+            total_policy_loss += policy_loss.item()
+            total_value_loss += value_loss.item()
+        
+        avg_policy_loss = total_policy_loss / self.num_updates
+        avg_value_loss = total_value_loss / self.num_updates
+        
+        self.training_stats['policy_losses'].append(avg_policy_loss)
+        self.training_stats['value_losses'].append(avg_value_loss)
+        
+        return {'policy_loss': avg_policy_loss, 'value_loss': avg_value_loss}
+    
+    def _compute_advantages(self, batch: List[Transition]) -> np.ndarray:
+        advantages = []
+        
+        for i, transition in enumerate(batch):
+            if transition.done:
+                next_value = 0
+            else:
+                with torch.no_grad():
+                    next_value = self.value_network(transition.next_state).item()
+            
+            delta = transition.reward + self.gamma * next_value - transition.value
+            
+            advantage = delta
+            for j in range(i + 1, min(i + 10, len(batch))):
+                if batch[j-1].done:
+                    break
+                advantage = advantage * self.gamma * self.lambda_gae + (
+                    batch[j].reward + self.gamma * self.value_network(batch[j].next_state).item() - batch[j].value
+                )
+            
+            advantages.append(advantage)
+        
+        advantages = np.array(advantages)
+        
+        if len(advantages) > 1:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        
+        return advantages
+    
+    def _compute_returns(self, batch: List[Transition]) -> np.ndarray:
+        returns = []
+        
+        for i, transition in enumerate(batch):
+            G = transition.reward
+            discount = self.gamma
+            
+            for j in range(i + 1, len(batch)):
+                if batch[j-1].done:
+                    break
+                G += discount * batch[j].reward
+                discount *= self.gamma
+            
+            returns.append(G)
+        
+        return np.array(returns)
+    
+    def _evaluate_mechanism(self, state: MDPState, data_X: np.ndarray, 
+                           data_y: np.ndarray) -> float:
+        
+        mechanism_expr = state.mechanism_tree.to_expression()
+        
+        try:
+            safe_dict = {
+                'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt,
+                'max': np.maximum, 'min': np.minimum
+            }
+            
+            for i in range(data_X.shape[1]):
+                safe_dict[f'X{i}'] = data_X[:, i]
+                safe_dict['S'] = data_X[:, 0]
+                if data_X.shape[1] > 1:
+                    safe_dict['I'] = data_X[:, 1]
+                if data_X.shape[1] > 2:
+                    safe_dict['A'] = data_X[:, 2]
+            
+            all_params = self._get_all_parameters(state.mechanism_tree)
+            safe_dict.update(all_params)
+            
+            predictions = eval(mechanism_expr, {"__builtins__": {}}, safe_dict)
+            predictions = np.array(predictions)
+            
+            mse = np.mean((data_y - predictions) ** 2)
+            
+            plausibility = self.knowledge_graph.compute_plausibility_score(
+                list(state.mechanism_tree.get_all_entities()),
+                state.mechanism_tree.get_all_relations()
+            )
+            
+            complexity_penalty = np.exp(-0.1 * state.mechanism_tree.get_complexity())
+            
+            score = -mse + 0.5 * plausibility + 0.3 * complexity_penalty
+            
+            return score
+            
+        except Exception:
+            return float('-inf')
+    
+    def _get_all_parameters(self, node) -> Dict[str, float]:
+        params = dict(node.parameters)
+        for child in node.children:
+            params.update(self._get_all_parameters(child))
+        return params
+    
+    def get_best_mechanism(self) -> Optional[MDPState]:
+        return self.best_mechanism
+    
+    def get_training_stats(self) -> Dict:
+        return self.training_stats
+    
+    def save_checkpoint(self, filepath: str):
+        checkpoint = {
+            'policy_state_dict': self.policy_network.state_dict(),
+            'value_state_dict': self.value_network.state_dict(),
+            'policy_optimizer_state_dict': self.policy_optimizer.state_dict(),
+            'value_optimizer_state_dict': self.value_optimizer.state_dict(),
+            'epsilon': self.epsilon,
+            'best_score': self.best_score,
+            'training_stats': self.training_stats
+        }
+        torch.save(checkpoint, filepath)
+    
+    def load_checkpoint(self, filepath: str):
+        checkpoint = torch.load(filepath, map_location=self.device)
+        self.policy_network.load_state_dict(checkpoint['policy_state_dict'])
+        self.value_network.load_state_dict(checkpoint['value_state_dict'])
+        self.policy_optimizer.load_state_dict(checkpoint['policy_optimizer_state_dict'])
+        self.value_optimizer.load_state_dict(checkpoint['value_optimizer_state_dict'])
+        self.epsilon = checkpoint['epsilon']
+        self.best_score = checkpoint['best_score']
+        self.training_stats = checkpoint['training_stats']
+    
+    def check_convergence(self) -> bool:
+        """Check if training has converged based on performance history"""
+        if len(self.performance_history) < self.convergence_window:
+            return False
+        
+        recent_performance = self.performance_history[-self.convergence_window:]
+        
+        # Check mean and variance stability
+        mean_first_half = np.mean(recent_performance[:self.convergence_window//2])
+        mean_second_half = np.mean(recent_performance[self.convergence_window//2:])
+        
+        relative_change = abs(mean_second_half - mean_first_half) / (abs(mean_first_half) + 1e-8)
+        
+        # Check if variance is low
+        variance = np.var(recent_performance)
+        
+        converged = relative_change < self.convergence_threshold and variance < 0.01
+        
+        return converged
+    
+    def update_performance_history(self, episode_reward: float):
+        """Update performance history for convergence checking"""
+        self.performance_history.append(episode_reward)
+        
+        # Keep only recent history to save memory
+        if len(self.performance_history) > self.convergence_window * 2:
+            self.performance_history = self.performance_history[-self.convergence_window * 2:]

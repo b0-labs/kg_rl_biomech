@@ -1,0 +1,228 @@
+# Knowledge Graph-Guided RL Configuration
+
+# Knowledge Graph Configuration
+knowledge_graph:
+  min_confidence_score: 0.8
+  max_graph_distance: 3
+  core_concepts_threshold: 0.95
+  alpha_distance_penalty: 0.5
+  relationship_types:
+    - catalysis
+    - substrate_of
+    - product_of
+    - inhibition
+    - competitive_inhibition
+    - non_competitive_inhibition
+    - allosteric_regulation
+    - binding
+    - binds_to
+    - transport
+    - transports
+    - induces
+    - represses
+    - phosphorylates
+    - enzyme_induction
+    - expressed_in
+    - located_in
+    - part_of
+    - causes_disease
+    - biomarker_for
+    - treats
+    - drug_drug_interaction
+
+# Knowledge Graph Loader Configuration
+kg_loader:
+  cache_ttl: 86400  # 24 hours in seconds
+  rate_limit: 3  # API calls per second (10 for KEGG)
+  timeout: 30  # Request timeout in seconds
+  max_retries: 3  # Maximum retry attempts for failed requests
+  use_biopython: false  # Use BioPython if available
+  use_compression: true  # Compress cached data with gzip
+  parallel_downloads: false  # Enable parallel source downloads
+  cache_dir: ./kg_cache  # Directory for caching downloaded data
+  
+  # API Authentication (optional)
+  auth_tokens:
+    # drugbank_username: your_username  # Uncomment and set for DrugBank access
+    # drugbank_password: your_password
+    # chembl_api_key: your_api_key  # Uncomment for enhanced ChEMBL access
+    
+  # Source-specific settings
+  kegg_organism: hsa  # Human pathways
+  uniprot_organism: 9606  # Human proteins
+  chembl_targets:  # Target types to include
+    - SINGLE PROTEIN
+    - PROTEIN COMPLEX
+
+# Knowledge Graph Builder Configuration
+kg_builder:
+  cache_path: ./kg_cache/comprehensive_kg.json
+  enable_caching: true
+  
+  # Entity counts from kg_builder.md specification
+  entity_counts:
+    enzymes: 50
+    substrates: 100
+    products: 50
+    inhibitors: 30
+    allosteric_regulators: 20
+    drugs: 30
+    receptors: 30
+    ligands: 30
+    signaling_proteins: 20
+    compartments: 10
+    cell_types: 5
+    tissues: 5
+    diseases: 20
+    biomarkers: 50
+    disease_proteins: 30
+    phenotypes: 20
+    drug_targets: 20
+    cyp_enzymes: 15
+    transporters: 10
+    
+  # System categories to build
+  system_categories:
+    - enzyme_kinetics
+    - multi_scale
+    - disease_state
+    - drug_interaction
+    - hierarchical
+    
+  # Relationship density (0-1, higher = more relationships)
+  relationship_density: 0.3
+  
+  # Confidence score ranges
+  confidence_scores:
+    core_entities: 0.95
+    primary_entities: 0.9
+    secondary_entities: 0.8
+    peripheral_entities: 0.7
+  
+# MDP Configuration  
+mdp:
+  max_steps_per_episode: 100
+  max_episodes: 10000
+  discount_factor: 0.99
+  convergence_check_freq: 100
+  convergence_threshold: 1e-4
+  
+# Policy Network Configuration
+policy_network:
+  hidden_dim: 256
+  num_gnn_layers: 3
+  num_attention_heads: 8
+  dropout_rate: 0.1
+  learning_rate: 3e-4
+  activation: leaky_relu
+  
+# Value Network Configuration  
+value_network:
+  hidden_dim: 256
+  num_gnn_layers: 3
+  learning_rate: 1e-3
+  
+# PPO Configuration
+ppo:
+  clip_epsilon: 0.2
+  lambda_gae: 0.95
+  num_updates_per_batch: 10
+  batch_size: 64
+  replay_buffer_capacity: 10000
+  update_frequency: 4
+  
+# Reward Function Weights
+reward:
+  lambda_likelihood: 1.0
+  lambda_plausibility: 0.5
+  lambda_interpretability: 0.3
+  lambda_action_penalty: 0.01
+  lambda_violation_penalty: 10.0
+  complexity_penalty: 0.1
+  
+# Exploration Configuration
+exploration:
+  epsilon_init: 1.0
+  epsilon_min: 0.05
+  epsilon_decay: 0.995
+  
+# Parameter Optimization
+optimization:
+  method: L-BFGS-B
+  max_iterations: 1000
+  tolerance: 1e-6
+  lambda_regularization: 1e-4
+  lambda_biological: 0.1
+  
+# Biological Parameter Ranges
+biological_params:
+  v_max:
+    min: 1e-3
+    max: 1e3
+    prior_mean: 1.0
+    prior_std: 0.5
+  k_m:
+    min: 1e-6
+    max: 1e3
+    prior_mean: 0.1
+    prior_std: 0.3
+  k_i:
+    min: 1e-6
+    max: 1e3
+    prior_mean: 0.1
+    prior_std: 0.3
+  hill_coefficient:
+    min: 0.5
+    max: 4.0
+    prior_mean: 1.5
+    prior_std: 0.5
+  k_on:
+    min: 1e3
+    max: 1e9
+    prior_mean: 1e6
+    prior_std: 1e5
+  k_off:
+    min: 1e-3
+    max: 1e3
+    prior_mean: 1.0
+    prior_std: 0.5
+    
+# Synthetic Data Generation
+synthetic_data:
+  num_systems_per_category: 100
+  num_data_points: 50
+  concentration_range:
+    min: 1e-9
+    max: 1e-3
+  time_range:
+    min: 0
+    max: 100
+  noise_models:
+    additive_std: 0.05
+    proportional_std: 0.1
+    correlation_coeff: 0.3
+    heteroscedastic_alpha: 0.5
+    
+# Evaluation Configuration
+evaluation:
+  train_split: 0.7
+  val_split: 0.15
+  test_split: 0.15
+  num_seeds: 5
+  num_cv_folds: 3
+  significance_level: 0.05
+  
+# Computational Resources
+compute:
+  device: cuda
+  num_workers: 4
+  pin_memory: true
+  mixed_precision: true
+  
+# Logging Configuration
+logging:
+  level: INFO
+  save_frequency: 100
+  checkpoint_dir: ./checkpoints
+  tensorboard_dir: ./runs
+  results_dir: ./results

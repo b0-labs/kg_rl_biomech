@@ -1,0 +1,117 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Project specific
+kg_cache/
+checkpoints/
+runs/
+results/
+logs/
+*.log
+training_*.log
+
+# Data files
+*.json
+*.pkl
+*.pt
+*.pth
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.csv
+
+# Keep important config files
+!config.yml
+!requirements.txt
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Environment variables
+.env
+.env.local
+
+# Model artifacts
+models/
+model_outputs/
+tensorboard_logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# Secrets and credentials
+credentials.json
+secrets.yml
+auth.json
+*.key
+*.pem
+*.crt
