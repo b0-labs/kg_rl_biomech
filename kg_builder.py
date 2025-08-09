@@ -898,6 +898,10 @@ class ComprehensiveKGBuilder:
         
         logger.info(f"Added drug interaction entities: {len([e for e in self.kg.entities.values() if e.entity_type == 'drug' or 'cyp' in e.id])} entities")
     
+    def build_complete_kg(self) -> KnowledgeGraph:
+        """Backward-compatible alias for build_complete_graph."""
+        return self.build_complete_graph()
+
     def _add_enzyme_substrate_relationships(self):
         """Add relationships between enzymes and their substrates"""
         # Glycolysis pathway relationships
