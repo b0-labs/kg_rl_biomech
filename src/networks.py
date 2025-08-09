@@ -84,7 +84,9 @@ class StateEncoder(nn.Module):
         
         self.tree_position_encoding = nn.Embedding(10, hidden_dim // 4)
         
-        node_feature_dim = hidden_dim * 2 + hidden_dim // 4
+        # Node feature is concat of: entity_emb (hidden_dim), relation_emb (hidden_dim),
+        # parameter embedding (hidden_dim), depth embedding (hidden_dim//4)
+        node_feature_dim = hidden_dim * 3 + hidden_dim // 4
         
         self.graph_encoder = GraphAttentionEncoder(
             input_dim=node_feature_dim,
@@ -167,12 +169,14 @@ class StateEncoder(nn.Module):
     def forward(self, state: MDPState) -> torch.Tensor:
         graph_data = self.state_to_graph(state)
         
+        device = next(self.parameters()).device
+        batch = torch.zeros(graph_data.x.size(0), dtype=torch.long, device=device)
         graph_embedding = self.graph_encoder(
-            graph_data.x, 
-            graph_data.edge_index
+            graph_data.x,
+            graph_data.edge_index,
+            batch=batch
         )
         
-        device = next(self.parameters()).device
         state_info = torch.tensor([
             state.mechanism_tree.get_complexity() / 100.0,
             state.step_count / 100.0,
