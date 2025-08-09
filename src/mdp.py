@@ -102,7 +102,7 @@ class MechanismNode:
             entity_id=self.entity_id,
             relation_type=self.relation_type,
             functional_form=self.functional_form,
-            parameters=copy.deepcopy(self.parameters),
+            parameters=dict(self.parameters),  # Shallow copy is sufficient
             children=[],
             parent=None
         )
@@ -157,11 +157,12 @@ class MDPState:
         return params
     
     def deep_copy(self) -> 'MDPState':
+        # OPTIMIZED: Use shallow copies where possible
         return MDPState(
             mechanism_tree=self.mechanism_tree.deep_copy(),
-            available_entities=copy.deepcopy(self.available_entities),
-            construction_history=copy.deepcopy(self.construction_history),
-            parameter_constraints=copy.deepcopy(self.parameter_constraints),
+            available_entities=set(self.available_entities),  # Shallow copy
+            construction_history=list(self.construction_history),  # Shallow copy
+            parameter_constraints=dict(self.parameter_constraints),  # Shallow copy
             step_count=self.step_count,
             is_terminal=self.is_terminal
         )
@@ -322,12 +323,22 @@ class BiologicalMDP:
         return params
     
     def transition(self, state: MDPState, action: Action) -> MDPState:
+        # OPTIMIZED: Only copy when we actually modify the state
+        if action.action_type == ActionType.TERMINATE:
+            # For terminate, just mark terminal without deep copy
+            new_state = MDPState(
+                mechanism_tree=state.mechanism_tree,  # Share reference
+                available_entities=state.available_entities,  # Share reference
+                construction_history=state.construction_history,  # Share reference
+                parameter_constraints=state.parameter_constraints,  # Share reference
+                step_count=state.step_count + 1,
+                is_terminal=True
+            )
+            return new_state
+        
+        # Only do deep copy for actions that modify the tree
         new_state = state.deep_copy()
         new_state.step_count += 1
-        
-        if action.action_type == ActionType.TERMINATE:
-            new_state.is_terminal = True
-            return new_state
         
         if new_state.step_count >= self.max_steps:
             new_state.is_terminal = True
