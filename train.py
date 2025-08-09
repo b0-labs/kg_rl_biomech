@@ -206,8 +206,9 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
     for episode in pbar:
         episode_stats = trainer.train_episode(system.data_X, system.data_y)
         
-        # Update less frequently to avoid blocking
-        if episode % 20 == 0 and episode > 0:  # Changed back to less frequent
+        # Update much less frequently to avoid massive slowdown
+        # Only update after we have enough data and not too often
+        if episode % 50 == 0 and episode > 0 and len(trainer.replay_buffer) >= 100:
             trainer.update_networks()
         
         # More frequent logging - every 20 episodes instead of 100
@@ -219,7 +220,11 @@ def train_on_synthetic_system(trainer: PPOTrainer, system, optimizer: ParameterO
                        f"Terminal={episode_stats.get('is_terminal', False)}")
         
         # Update progress bar with current stats
-        best_complexity = best_mechanism.mechanism_tree.get_complexity() if best_mechanism else 0
+        # Get complexity from trainer's best mechanism, not local variable
+        if hasattr(trainer, 'best_mechanism') and trainer.best_mechanism:
+            best_complexity = trainer.best_mechanism.mechanism_tree.get_complexity()
+        else:
+            best_complexity = 0
         pbar.set_postfix({
             'reward': f"{episode_stats['episode_reward']:.3f}",
             'best': f"{episode_stats['best_score']:.3f}",

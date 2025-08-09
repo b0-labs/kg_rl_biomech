@@ -157,17 +157,20 @@ class PPOTrainer:
         self.reward_tracker.add_reward(episode_reward)
         self.reward_tracker.end_episode()
         
-        # Evaluate ANY terminal mechanism with complexity > 1
-        if self.mdp.is_terminal_state(state):
+        # Evaluate ANY terminal mechanism with complexity > 0
+        if self.mdp.is_terminal_state(state) and state.mechanism_tree:
             complexity = state.mechanism_tree.get_complexity()
-            if complexity > 1:
+            if complexity > 0:  # Changed from > 1 to > 0
                 try:
                     score = self._evaluate_mechanism(state, data_X, data_y)
-                    if score > self.best_score:
+                    # Only update if score is valid and better
+                    if score > -900 and score > self.best_score:  # Check for valid score
                         self.best_score = score
-                        self.best_mechanism = state  # Store reference
+                        self.best_mechanism = copy.deepcopy(state)  # Deep copy to preserve
+                        print(f"✓ New best: score={score:.3f}, complexity={complexity}")
                 except Exception as e:
-                    # Log the error for debugging
+                    # Log the actual error for debugging
+                    print(f"⚠ Evaluation failed: {e}")
                     pass
         
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
@@ -189,13 +192,18 @@ class PPOTrainer:
         return episode_stats
     
     def update_networks(self):
-        if len(self.replay_buffer) < self.batch_size:
+        # Skip if not enough data
+        if len(self.replay_buffer) < self.batch_size * 2:
             return {'policy_loss': 0.0, 'value_loss': 0.0}
         
-        batch = self.replay_buffer.sample(self.batch_size)
+        # Use smaller batch for faster updates
+        actual_batch_size = min(self.batch_size, 32)
+        batch = self.replay_buffer.sample(actual_batch_size)
         
-        advantages = self._compute_advantages(batch)
-        returns = self._compute_returns(batch)
+        # Compute advantages and returns more efficiently
+        with torch.no_grad():
+            advantages = self._compute_advantages(batch)
+            returns = self._compute_returns(batch)
         
         old_log_probs = torch.tensor([t.log_prob for t in batch], dtype=torch.float32, device=self.device)
         old_values = torch.tensor([t.value for t in batch], dtype=torch.float32, device=self.device)
@@ -203,7 +211,9 @@ class PPOTrainer:
         total_policy_loss = 0.0
         total_value_loss = 0.0
         
-        for _ in range(self.num_updates):
+        # Limit updates to avoid slowdown
+        actual_updates = min(self.num_updates, 2)
+        for _ in range(actual_updates):
             current_log_probs = []
             current_values = []
             
@@ -354,6 +364,11 @@ class PPOTrainer:
             
             predictions = eval(mechanism_expr, {"__builtins__": {}}, safe_dict)
             predictions = np.array(predictions)
+            # Ensure predictions are the right shape
+            if predictions.ndim == 0:
+                predictions = np.full_like(data_y, predictions)
+            elif len(predictions) != len(data_y):
+                return -500.0  # Shape mismatch
             
             mse = np.mean((data_y - predictions) ** 2)
             
@@ -368,8 +383,9 @@ class PPOTrainer:
             
             return score
             
-        except Exception:
-            return float('-inf')
+        except Exception as e:
+            # Return a bad but not infinitely bad score
+            return -999.0  # Changed from -inf to allow some updates
     
     def _get_all_parameters(self, node) -> Dict[str, float]:
         params = dict(node.parameters)

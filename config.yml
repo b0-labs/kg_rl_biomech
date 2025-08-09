@@ -126,10 +126,10 @@ value_network:
 ppo:
   clip_epsilon: 0.2
   lambda_gae: 0.95
-  num_updates_per_batch: 5  # Reduced from 10 for faster iteration
-  batch_size: 128  # Increased from 64 for better GPU utilization
-  replay_buffer_capacity: 1000  # Reduced from 10000 to prevent memory issues
-  update_frequency: 2  # Reduced from 4 for more frequent updates
+  num_updates_per_batch: 2  # Reduced to 2 for much faster updates
+  batch_size: 32  # Reduced to 32 for faster processing
+  replay_buffer_capacity: 500  # Reduced to 500 to prevent memory buildup
+  update_frequency: 50  # Increased to 50 - update much less frequently
   
 # Reward Function Weights
 reward:
