@@ -90,6 +90,93 @@ class KnowledgeGraph:
         self._initialize_constraints()
         
     def _initialize_constraints(self):
+        # Add SUBSTRATE_OF constraints
+        self.mathematical_constraints[RelationType.SUBSTRATE_OF] = [
+            MathematicalConstraint(
+                "substrate_binding",
+                "(v_max * S) / (k_m + S)",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "substrate_consumption",
+                "k_cat * E * S / (k_m + S)",
+                {"k_cat": (0.01, 1000.0), "E": (0.0001, 10.0), "k_m": (0.000001, 1000.0)}
+            )
+        ]
+        
+        # Add PRODUCT_OF constraints
+        self.mathematical_constraints[RelationType.PRODUCT_OF] = [
+            MathematicalConstraint(
+                "product_formation",
+                "(v_max * S) / (k_m + S)",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0)}
+            ),
+            MathematicalConstraint(
+                "product_inhibition",
+                "(v_max * S) / ((k_m + S) * (1.0 + P / k_p))",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0), "k_p": (0.001, 100.0)}
+            )
+        ]
+        
+        # Add BINDS_TO constraints
+        self.mathematical_constraints[RelationType.BINDS_TO] = [
+            MathematicalConstraint(
+                "simple_binding",
+                "B_max * S / (k_d + S)",
+                {"B_max": (0.001, 100.0), "k_d": (0.000001, 100.0)}
+            )
+        ]
+        
+        # Add TRANSPORTS constraints
+        self.mathematical_constraints[RelationType.TRANSPORTS] = [
+            MathematicalConstraint(
+                "active_transport",
+                "(v_max * S) / (k_m + S)",
+                {"v_max": (0.001, 1000.0), "k_m": (0.000001, 1000.0)}
+            )
+        ]
+        
+        # Add constraints for other missing types
+        self.mathematical_constraints[RelationType.BIOMARKER_FOR] = [
+            MathematicalConstraint(
+                "biomarker_response",
+                "baseline + delta * S / (EC50 + S)",
+                {"baseline": (0.0, 10.0), "delta": (0.1, 100.0), "EC50": (0.001, 100.0)}
+            )
+        ]
+        
+        self.mathematical_constraints[RelationType.CAUSES_DISEASE] = [
+            MathematicalConstraint(
+                "disease_progression",
+                "severity * (1.0 - exp(-k * S))",
+                {"severity": (0.1, 10.0), "k": (0.001, 1.0)}
+            )
+        ]
+        
+        self.mathematical_constraints[RelationType.TREATS] = [
+            MathematicalConstraint(
+                "treatment_effect",
+                "E_max * S / (EC50 + S)",
+                {"E_max": (0.1, 1.0), "EC50": (0.001, 100.0)}
+            )
+        ]
+        
+        self.mathematical_constraints[RelationType.LOCATED_IN] = [
+            MathematicalConstraint(
+                "location_factor",
+                "c",
+                {"c": (0.1, 10.0)}
+            )
+        ]
+        
+        self.mathematical_constraints[RelationType.PART_OF] = [
+            MathematicalConstraint(
+                "part_factor",
+                "c",
+                {"c": (0.1, 10.0)}
+            )
+        ]
+        
         # Enzyme Kinetics Constraints
         self.mathematical_constraints[RelationType.CATALYSIS] = [
             MathematicalConstraint(
