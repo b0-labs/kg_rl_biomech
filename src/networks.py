@@ -127,19 +127,20 @@ class StateEncoder(nn.Module):
             entity_idx = 0
             if node.entity_id and node.entity_id in self.entity_to_idx:
                 entity_idx = self.entity_to_idx[node.entity_id] + 1
-            entity_emb = self.entity_embedding(torch.tensor([entity_idx]))
+            device = next(self.parameters()).device
+            entity_emb = self.entity_embedding(torch.tensor([entity_idx], device=device))
             
             relation_idx = 0
             if node.relation_type and node.relation_type in self.relation_to_idx:
                 relation_idx = self.relation_to_idx[node.relation_type] + 1
-            relation_emb = self.relation_embedding(torch.tensor([relation_idx]))
+            relation_emb = self.relation_embedding(torch.tensor([relation_idx], device=device))
             
             avg_param_value = 0.0
             if node.parameters:
                 avg_param_value = np.mean(list(node.parameters.values()))
-            param_emb = self.parameter_encoder(torch.tensor([[avg_param_value]], dtype=torch.float32))
+            param_emb = self.parameter_encoder(torch.tensor([[avg_param_value]], dtype=torch.float32, device=device))
             
-            depth_emb = self.tree_position_encoding(torch.tensor([min(depth, 9)]))
+            depth_emb = self.tree_position_encoding(torch.tensor([min(depth, 9)], device=device))
             
             node_feature = torch.cat([
                 entity_emb.squeeze(0),
@@ -157,8 +158,9 @@ class StateEncoder(nn.Module):
         if not edges:
             edges = [[0, 0]]
         
-        edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
-        x = torch.stack(node_features)
+        device = next(self.parameters()).device
+        edge_index = torch.tensor(edges, dtype=torch.long, device=device).t().contiguous()
+        x = torch.stack(node_features).to(device)
         
         return Data(x=x, edge_index=edge_index)
     
@@ -170,11 +172,12 @@ class StateEncoder(nn.Module):
             graph_data.edge_index
         )
         
+        device = next(self.parameters()).device
         state_info = torch.tensor([
             state.mechanism_tree.get_complexity() / 100.0,
             state.step_count / 100.0,
             float(state.is_terminal)
-        ], dtype=torch.float32)
+        ], dtype=torch.float32, device=device)
         
         combined_features = torch.cat([graph_embedding, state_info])
         
